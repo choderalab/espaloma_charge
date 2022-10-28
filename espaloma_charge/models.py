@@ -133,19 +133,16 @@ class Sequential(torch.nn.Module):
         """
         import dgl
 
-        # get homogeneous subgraph
-        g_ = dgl.to_homo(g.edge_type_subgraph(["n1_neighbors_n1"]))
-
         if x is None:
             # get node attributes
-            x = g.nodes["n1"].data["h0"]
+            x = g.ndata["h0"]
             x = self.f_in(x)
 
         # message passing on homo graph
-        x = self._sequential(g_, x)
+        x = self._sequential(g, x)
 
         # put attribute back in the graph
-        g.nodes["n1"].data["h"] = x
+        g.ndata["h"] = x
 
         return g
 
@@ -192,6 +189,16 @@ def get_charges(node):
         + (s**-1) * torch.div(sum_q + sum_e_s_inv, sum_s_inv)
     }
 
+class ChargeReadout(torch.nn.Module):
+    def __init__(self, in_features):
+        super().__init__()
+        self.fc_params = torch.nn.Linear(in_features, 2)
+
+    def forward(self, g):
+        h = self.fc_params(g.ndata["h"])
+        e, s = h.split(1, -1)
+        g.ndata["e"], g.ndata["s"] = e, s
+        return g
 
 class ChargeEquilibrium(torch.nn.Module):
     """Charge equilibrium within batches of molecules."""
@@ -205,16 +212,14 @@ class ChargeEquilibrium(torch.nn.Module):
         import dgl
 
         g.apply_nodes(
-            lambda node: {"s_inv": node.data["s"] ** -1}, ntype="n1"
+            lambda node: {"s_inv": node.data["s"] ** -1},
         )
 
         g.apply_nodes(
             lambda node: {"e_s_inv": node.data["e"] * node.data["s"] ** -1},
-            ntype="n1",
         )
 
-        if total_charge is None:
-            total_charge = dgl.sum_nodes(g, "q_ref")
+        g.ndata["sum_q"] = dgl.broadcast_nodes(g, torch.ones(1, 1) * total_charge)
 
         sum_s_inv = dgl.sum_nodes(g, "s_inv")
         sum_e_s_inv = dgl.sum_nodes(g, "e_s_inv")
@@ -252,6 +257,6 @@ class ChargeEquilibrium(torch.nn.Module):
         #     etype="g_has_n1",
         # )
 
-        g.apply_nodes(get_charges, ntype="n1")
+        g.apply_nodes(get_charges)
 
         return g
