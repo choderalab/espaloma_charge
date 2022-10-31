@@ -220,11 +220,11 @@ class ChargeEquilibrium(torch.nn.Module):
         )
 
         if "q_ref" in g.ndata:
-            total_charge = g.ndata["q_ref"].sum()
+            total_charge = dgl.sum_nodes(g, "q_ref")
         else:
             total_charge = torch.ones(1, 1) * total_charge
-
-        g.ndata["sum_q"] = dgl.broadcast_nodes(total_charge)
+        
+        g.ndata["sum_q"] = dgl.broadcast_nodes(g, total_charge)
 
         sum_s_inv = dgl.sum_nodes(g, "s_inv")
         sum_e_s_inv = dgl.sum_nodes(g, "e_s_inv")

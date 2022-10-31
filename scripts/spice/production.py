@@ -98,6 +98,7 @@ def run(args):
         if rmse_vl <= rmse_vl_best:
             rmse_vl_best = rmse_vl
             rmse_te_best = rmse_te
+            torch.save(model.cpu(), "model.pt")
      
     import json
     import pandas as pd
