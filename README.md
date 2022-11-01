@@ -10,9 +10,9 @@ pip install espaloma_charge
 ## Example
 
 ```python
-from rdkit import Chem; from espaloma_charge import charge
-molecule = Chem.MolFromSmiles("N#N")
-charge(molecule)
->>> array([0., 0.], dtype=float32)
+>>> from rdkit import Chem; from espaloma_charge import charge
+>>> molecule = Chem.MolFromSmiles("N#N")
+>>> charge(molecule)
+array([0., 0.], dtype=float32)
 
 ```
