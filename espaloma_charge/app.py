@@ -1,6 +1,6 @@
 import os
 import tempfile
-import urllib.request
+from urllib import request
 import torch
 from torch.utils.model_zoo import load_url
 import numpy as np
@@ -32,7 +32,10 @@ def charge(
     np.ndarray : (n_atoms, ) array of partial charges.
 
     """
-    model = load_url(model_url, map_location="cpu")
+    with tempfile.TemporaryDirectory() as tempdir:
+        target_path = os.path.join(tempdir, "model.pt")
+        request.urlretrieve(model_url, target_path)
+        model = torch.load(target_path, map_location="cpu")
     graph = from_rdkit_mol(molecule)
     graph = model(graph)
     return graph.ndata["q"].cpu().detach().flatten().numpy()
