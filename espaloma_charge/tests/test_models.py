@@ -1,6 +1,6 @@
 def test_import():
-from espaloma_charge.models import Sequential
-from espaloma_charge.models import ChargeEquilibrium
+    from espaloma_charge.models import Sequential
+    from espaloma_charge.models import ChargeEquilibrium
 
 def test_sequential():
     from functools import partial
