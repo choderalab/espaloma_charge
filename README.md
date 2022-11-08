@@ -16,3 +16,21 @@ pip install espaloma_charge
 array([0., 0.], dtype=float32)
 
 ```
+
+## Reference
+If you are using this little tool in your pipeline, please consider citing:
+
+```
+@Article{D2SC02739A,
+author ="Wang, Yuanqing and Fass, Josh and Kaminow, Benjamin and Herr, John E. and Rufa, Dominic and Zhang, Ivy and Pulido, Iván and Henry, Mike and Bruce Macdonald, Hannah E. and Takaba, Kenichiro and Chodera, John D.",
+title  ="End-to-end differentiable construction of molecular mechanics force fields",
+journal  ="Chem. Sci.",
+year  ="2022",
+volume  ="13",
+issue  ="41",
+pages  ="12016-12033",
+publisher  ="The Royal Society of Chemistry",
+doi  ="10.1039/D2SC02739A",
+url  ="http://dx.doi.org/10.1039/D2SC02739A"}
+
+```
