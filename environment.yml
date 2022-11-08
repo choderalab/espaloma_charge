@@ -1,3 +1,4 @@
+name: test
 channels:
   # Reduces image size by using empty cudatoolkit package
   - jaimergp/label/unsupported-cudatoolkit-shim
