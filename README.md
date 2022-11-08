@@ -17,9 +17,7 @@ array([0., 0.], dtype=float32)
 
 ```
 
-Use it in Google Colab to assign partial charges to your favorite molecule:
-
-[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1e14EkNyidPI0wXBGcewh9m9LC1imSRWZ?usp=sharing)]
+[![Assign partial charges to your favorite molecule](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1e14EkNyidPI0wXBGcewh9m9LC1imSRWZ?usp=sharing)
 
 ## Reference
 If you are using this little tool in your pipeline, please consider citing:
