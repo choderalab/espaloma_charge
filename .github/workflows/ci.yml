@@ -8,9 +8,12 @@ defaults:
 
 jobs:
   build-linux:
-    runs-on: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
     strategy:
-      max-parallel: 5
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        python-version: ["3.8", "3.10"]
 
     steps:
     - uses: actions/checkout@v3
@@ -27,7 +30,7 @@ jobs:
       with:
         environment-file: environment.yml
         extra-specs: |
-          python=3.9
+          python=${{ matrix.python-version }}
 
     - name: Install dependencies
       run: |
