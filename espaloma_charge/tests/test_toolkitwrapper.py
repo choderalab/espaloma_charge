@@ -25,7 +25,7 @@ def test_ethanol_molecule_api_wo_registry():
     offmol = create_ethanol()
     # This should raise a ChargeMethodUnavailableError since the global toolkit registry won't
     # automatically add the espalomawrapper
-    with pytest.raises(ChargeMethodUnavailableError):
+    with pytest.raises(ValueError):
         offmol.assign_partial_charges('espaloma-am1bcc')
 
 
@@ -35,6 +35,12 @@ def test_ethanol_direct():
     ectkw.assign_partial_charges(offmol, 'espaloma-am1bcc')
     # Ensure its not all 0s
     assert (abs(offmol.partial_charges.m_as(unit.elementary_charge)) > 0.01).any(), offmol.partial_charges
+
+def test_ethanol_direct_bad_method():
+    ectkw = EspalomaChargeToolkitWrapper()
+    offmol = create_ethanol()
+    with pytest.raises(ChargeMethodUnavailableError):
+        ectkw.assign_partial_charges(offmol, 'not-a-supported-method')
 
 def test_create_system():
     offmol = create_ethanol()
