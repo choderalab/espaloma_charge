@@ -11,7 +11,7 @@ def test_ethanol_molecule_api_w_wrapper():
     offmol.assign_partial_charges('espaloma-am1bcc',
                                   toolkit_registry=ectkw)
     # Ensure its not all 0s
-    assert (abs(offmol.partial_charges.value_in_unit(unit.elementary_charge)) > 0.01).any(), offmol.partial_charges
+    assert (abs(offmol.partial_charges.m_as(unit.elementary_charge)) > 0.01).any(), offmol.partial_charges
 
 def test_ethanol_molecule_api_w_explicit_registry():
     ectkr = ToolkitRegistry([EspalomaChargeToolkitWrapper])
@@ -19,7 +19,7 @@ def test_ethanol_molecule_api_w_explicit_registry():
     offmol.assign_partial_charges('espaloma-am1bcc',
                                   toolkit_registry=ectkr)
     # Ensure its not all 0s
-    assert (abs(offmol.partial_charges.value_in_unit(unit.elementary_charge)) > 0.01).any(), offmol.partial_charges
+    assert (abs(offmol.partial_charges.m_as(unit.elementary_charge)) > 0.01).any(), offmol.partial_charges
 
 def test_ethanol_molecule_api_wo_registry():
     offmol = create_ethanol()
@@ -34,7 +34,7 @@ def test_ethanol_direct():
     offmol = create_ethanol()
     ectkw.assign_partial_charges(offmol, 'espaloma-am1bcc')
     # Ensure its not all 0s
-    assert (abs(offmol.partial_charges.value_in_unit(unit.elementary_charge)) > 0.01).any(), offmol.partial_charges
+    assert (abs(offmol.partial_charges.m_as(unit.elementary_charge)) > 0.01).any(), offmol.partial_charges
 
 def test_create_system():
     offmol = create_ethanol()
