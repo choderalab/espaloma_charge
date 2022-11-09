@@ -5,13 +5,13 @@ __all__ = ("EspalomaChargeToolkitWrapper",)
 
 from openff.units import unit
 
-from openff.toolkit.utils import base_wrapper
+from openff.toolkit.utils import base_wrapper, RDKitToolkitWrapper
 from openff.toolkit.utils.exceptions import ChargeMethodUnavailableError
 from openff.toolkit.utils.utils import inherit_docstrings
 
 from espaloma_charge import charge
 
-#@inherit_docstrings
+@inherit_docstrings
 class EspalomaChargeToolkitWrapper(base_wrapper.ToolkitWrapper):
     """
     .. warning :: This API is experimental and subject to change.
@@ -27,6 +27,9 @@ class EspalomaChargeToolkitWrapper(base_wrapper.ToolkitWrapper):
 
         self._toolkit_file_read_formats = []
         self._toolkit_file_write_formats = []
+
+        # Store an instance of an RDKitToolkitWrapper for file I/O
+        self._rdkit_toolkit_wrapper = RDKitToolkitWrapper()
 
     def assign_partial_charges(
         self,
@@ -110,7 +113,8 @@ class EspalomaChargeToolkitWrapper(base_wrapper.ToolkitWrapper):
         )
 
         if partial_charge_method == "espaloma-am1bcc":
-            partial_charges = charge(molecule.to_rdkit())
+            rdmol = self._rdkit_toolkit_wrapper.to_rdkit(mol_copy)
+            partial_charges = charge(rdmol)
 
 
         molecule.partial_charges = unit.Quantity(
