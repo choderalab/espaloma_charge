@@ -1,0 +1,4 @@
+dgl
+torch
+numpy
+rdkit
