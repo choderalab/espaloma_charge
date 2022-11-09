@@ -1,4 +1,6 @@
-from espaloma_charge.espaloma_wrapper import EspalomaChargeToolkitWrapper
+import dgl
+dgl.use_libxsmm(False)
+from espaloma_charge.openff_wrapper import EspalomaChargeToolkitWrapper
 from openff.toolkit import ToolkitRegistry, ForceField, RDKitToolkitWrapper
 from openff.units import unit
 import pytest
