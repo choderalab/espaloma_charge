@@ -1,0 +1,12 @@
+name: test
+channels:
+  # Reduces image size by using empty cudatoolkit package
+  - jaimergp/label/unsupported-cudatoolkit-shim
+  - conda-forge
+  - dglteam
+dependencies:
+  - python
+  - openff-toolkit
+  - pytest
+  - pytorch
+  - dgl
