@@ -1,6 +1,7 @@
-# Espaloma Charge
-Standalone charge assignment from Espaloma framework. https://doi.org/10.1039/D2SC02739A
+Espaloma Charge
 =======
+
+Standalone charge assignment from Espaloma framework. https://doi.org/10.1039/D2SC02739A
 
 ## Installation
 
@@ -9,6 +10,7 @@ pip install espaloma_charge
 ```
 
 ## Example
+**Assign charges to rdkit molecule.**
 
 ```python
 >>> from rdkit import Chem; from espaloma_charge import charge
@@ -20,6 +22,19 @@ array([0., 0.], dtype=float32)
 
 Assign charges to your favorite molecule in 
 [![Google Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1e14EkNyidPI0wXBGcewh9m9LC1imSRWZ?usp=sharing)
+
+
+Alternatively, **Use with [`openff-toolkit`](https://github.com/openforcefield/openff-toolkit)**(installation required)
+
+```python
+>>> from openff.toolkit.topology import Molecule
+>>> from espaloma_charge.openff_wrapper import EspalomaChargeToolkitWrapper
+>>> toolkit_registry = EspalomaChargeToolkitWrapper()
+>>> molecule = Molecule.from_smiles("N#N")
+>>> molecule.assign_partial_charges('espaloma-am1bcc', toolkit_registry=toolkit_registry)
+>>> molecule.partial_charges
+<Quantity([0. 0.], 'elementary_charge')>
+```
 
 ## Reference
 If you are using this little tool in your pipeline, please consider citing:
