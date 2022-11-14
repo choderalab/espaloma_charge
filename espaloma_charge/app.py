@@ -1,6 +1,12 @@
 import os
 import tempfile
 from urllib import request
+from rdkit import Chem
+import dgl
+try:
+    dgl.use_libxsmm(False)
+except:
+    pass
 import torch
 from torch.utils.model_zoo import load_url
 import numpy as np
@@ -11,7 +17,7 @@ https://github.com/choderalab/espaloma_charge/releases/download/v0.0.0/model.pt
 
 def charge(
         molecule,
-        total_charge: float = 0.0,
+        total_charge: float = None,
         model_url: str = MODEL_URL,
     ) -> np.ndarray:
     """Assign machine-learned AM1-BCC partial charges to a molecule.
@@ -36,6 +42,8 @@ def charge(
         target_path = os.path.join(tempdir, "model.pt")
         request.urlretrieve(model_url, target_path)
         model = torch.load(target_path, map_location="cpu")
+    if total_charge is None:
+        total_charge = Chem.GetFormalCharge(molecule)
     graph = from_rdkit_mol(molecule)
     graph = model(graph)
     return graph.ndata["q"].cpu().detach().flatten().numpy()
