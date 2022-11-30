@@ -1,0 +1,14 @@
+name: hydration
+channels:
+  - conda-forge/label/openmm_dev
+  - openeye
+  - defaults
+dependencies:
+  - openmm=8
+  - openmmtools
+  - openmmforcefields
+  - openeye-toolkits
+  - click
+  - pip
+  - pip:
+    - git+https://github.com/choderalab/espaloma_charge.git
