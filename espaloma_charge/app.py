@@ -45,5 +45,7 @@ def charge(
     if total_charge is None:
         total_charge = Chem.GetFormalCharge(molecule)
     graph = from_rdkit_mol(molecule)
-    graph = model(graph, total_charge=total_charge)
+    n_nodes = graph.number_of_nodes() * 1.0
+    graph.ndata["q_ref"] = torch.ones(n_nodes, 1) * total_charge / n_nodes
+    graph = model(graph)
     return graph.ndata["q"].cpu().detach().flatten().numpy()
