@@ -9,6 +9,7 @@ dependencies:
   - openmmforcefields
   - openeye-toolkits
   - click
+  - rich
   - pip
   - pip:
     - git+https://github.com/choderalab/espaloma_charge.git
