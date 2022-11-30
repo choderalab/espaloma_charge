@@ -16,7 +16,18 @@ $ wget https://raw.githubusercontent.com/MobleyLab/FreeSolv/master/database.txt 
 ```
 
 ## Computing hydration free energies
+
+To run the hydration free energy calculation using the `EspalomaCharge` toolkit and `espaloma-am1bcc` charge method:
+```bash
+$ python hydration.py run --smiles CCO --toolkit EspalomaCharge --method espaloma-am1bcc
 ```
+To run the hydration free energy calculation using the `AmberTools` toolkit and `am1bcc` charge method:
+```bash
+$ python hydration.py run --smiles CCO --toolkit AmberTools --method am1bcc
+```
+To run the hydration free energy calculation using the `OpenEye` toolkit and `am1bccelf10` charge method:
+```bash
+$ python hydration.py run --smiles CCO --toolkit OpenEye --method am1bccelf10
 ```
 
 ## Manifest
