@@ -47,6 +47,9 @@ $ python hydration.py run --smiles "CN1C=NC2=C1C(=O)N(C(=O)N2C)C" --toolkit Open
 
 **NOTE:** Currently, simulations are not able to be resumed, and existing filepaths must be deleted before being re-run.
 
+For debugging purposes, it is useful to reduce the number of iterations: `--niterations 100` should take only ~10 min.
+Don't go below 25, which is the current interval for online analysis---the YAML file will not be written if you go below 25 iterations.
+
 ### Analyzing the simulation
 
 To analyze the simulation, use 
