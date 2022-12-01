@@ -313,7 +313,8 @@ def analyze(filepath):
         ddf = estimates[-1]['mbar_analysis']['standard_error_in_kT']
         free_energy[phase] = (df, ddf)
     
-    # Compute in kT
+    # Compute hydration free energy in kT
+    # TODO: This part should probably use uncertainties: https://pypi.org/project/uncertainties/
     import numpy as np
     df = free_energy['vacuum'][0] - free_energy['solvent'][0]
     ddf = np.sqrt(free_energy['vacuum'][1]**2 + free_energy['solvent'][1]**2)
