@@ -24,7 +24,13 @@ def cli():
 @click.option('--forcefield', 
               default='openff-2.0.0',
               help='Small molecule force field to use')
-def run(smiles, toolkit, method, forcefield):
+@click.option('--filepath', 
+              required=True,
+              help='File path to store output')
+@click.option('--niterations', 
+              default=1000,
+              help='Number of iterations to run')
+def run(smiles, toolkit, method, forcefield, filepath, niterations):
     """
     Compute the hydration free energy of a specified molecule
 
@@ -52,6 +58,10 @@ def run(smiles, toolkit, method, forcefield):
         ['gaff-1.8', 'gaff-2.1', 'gaff-2.11']
         ['openff-1.2.1', 'openff-1.3.1', 'openff-2.0.0']
             see https://github.com/openforcefield/openff-forcefields for complete list of available openff force field versions
+    filepath : str
+        The filepath containing the simulation NetCDF and YAML files.   
+    niterations : int
+        The number of iterations to run
     """
     # Create an OpenFF Molecule object
     from openff.toolkit.topology import Molecule
@@ -89,7 +99,7 @@ def run(smiles, toolkit, method, forcefield):
     from openmm import app
     ffxml_forcefields = ['amber/tip3p_standard.xml'] # OpenMM ffxml solvent force field
     solvent_model = 'tip3p' # solvent model for Modeller.addSolvent()
-    padding = 20.0 * unit.angstroms # padding for solvent box construction
+    padding = 12.0 * unit.angstroms # padding for solvent box construction
     hydrogen_mass = 4.0 * unit.amu
     nonperiodic_forcefield_kwargs = { 'constraints' : app.HBonds, 'rigidWater' : True, 'removeCMMotion' : False, 'hydrogenMass' : hydrogen_mass }
     periodic_forcefield_kwargs = { 'constraints' : app.HBonds, 'rigidWater' : True, 'removeCMMotion' : False, 'hydrogenMass' : hydrogen_mass, 'nonbondedMethod' : app.PME }
@@ -129,7 +139,8 @@ def run(smiles, toolkit, method, forcefield):
     # Run simulations
     #
 
-    for phase in ['vacuum', 'solvent']:
+    phases = ['vacuum', 'solvent']
+    for phase in phases:
         # Modify the SystemGenerator to work around bug in openmmforcefields <=0.11.2 : https://github.com/openmm/openmmforcefields/issues/252
         match phase:
             case 'solvent':
@@ -149,11 +160,9 @@ def run(smiles, toolkit, method, forcefield):
                 thermodynamic_state = ThermodynamicState(system=system, temperature=temperature)
 
         # Run the alchemical free energy calculation for this phase
-        run_phase(molecule, system, openff_topology[phase], thermodynamic_state, phase)
+        run_phase(molecule, system, openff_topology[phase], thermodynamic_state, phase, filepath, niterations)
 
-cli.add_command(run)
-
-def run_phase(molecule, system, topology, thermodynamic_state, phase):
+def run_phase(molecule, system, topology, thermodynamic_state, phase, filepath, niterations):
     """Run an alchemical free energy calculation for a single phase.
 
     Parameters
@@ -168,41 +177,47 @@ def run_phase(molecule, system, topology, thermodynamic_state, phase):
         The thermodynamic state to run the simulation at
     phase : str
         The phase to simulate: ['vacuum', 'solvent']
+    filepath : str
+        The filepath containing the simulation NetCDF and YAML files.  
+    niterations : int
+        The number of iterations to run
     """
     ALLOWED_PHASES = ['vacuum', 'solvent']
     if phase not in ALLOWED_PHASES:
         raise ValueError(f"phase must be one of {ALLOWED_PHASES}; specified '{phase}'")
 
     # Write out PDB file
-    with open(phase + '.pdb', 'wt') as outfile:
-        from openmm.app import PDBFile
-        PDBFile.writeFile(topology.to_openmm(), topology.get_positions().to_openmm(), outfile)
+    #with open(phase + '.pdb', 'wt') as outfile:
+    #    from openmm.app import PDBFile
+    #    PDBFile.writeFile(topology.to_openmm(), topology.get_positions().to_openmm(), outfile)
 
     # Simulation parameters
     import openmm
     from openmm import unit
-    collision_rate = 5.0 / unit.picoseconds
+    collision_rate = 1.0 / unit.picoseconds
     timestep = 4.0 * unit.femtoseconds
-    n_steps = 25 # number of steps per iteration
+    n_steps = 250 # number of steps per iteration
     reassign_velocities = False # whether to reassign velocities every iteration
 
     # Define the region of the System to be alchemically modified.
     from openmmtools.alchemy import AlchemicalRegion, AbsoluteAlchemicalFactory, AlchemicalState
     alchemical_atoms = list(range(molecule.n_atoms))
-    alchemical_region = AlchemicalRegion(alchemical_atoms=alchemical_atoms, softcore_beta=0.5)
-    factory = AbsoluteAlchemicalFactory(alchemical_pme_treatment='direct-space')
+    #alchemical_region = AlchemicalRegion(alchemical_atoms=alchemical_atoms, softcore_beta=1.0)
+    #factory = AbsoluteAlchemicalFactory(alchemical_pme_treatment='direct-space')
+    alchemical_region = AlchemicalRegion(alchemical_atoms=alchemical_atoms)
+    factory = AbsoluteAlchemicalFactory()
     alchemical_system = factory.create_alchemical_system(system, alchemical_region)
 
     # Simulation parameters
-    storage_path = phase + '.nc'
+    import os
+    storage_path = os.path.join(filepath, phase + '.nc')
+    online_analysis_interval = 25
     match phase:
         case 'vacuum':
             n_lambda = 6 # number of alchemical states
-            n_iterations = 500
             platform = openmm.Platform.getPlatformByName('CPU')
         case 'solvent':
-            n_lambda = 20 # number of alchemical states
-            n_iterations = 500
+            n_lambda = 30 # number of alchemical states
             platform = openmm.Platform.getPlatformByName('CUDA')
             platform.setPropertyDefaultValue('Precision', 'mixed')
             platform.setPropertyDefaultValue('DeterministicForces', 'true')
@@ -213,9 +228,17 @@ def run_phase(molecule, system, topology, thermodynamic_state, phase):
 
     # Initialize compound thermodynamic states at different temperatures and alchemical states.
     import numpy as np
-    protocol = {'temperature': thermodynamic_state.temperature * np.ones([n_lambda]),
-                'lambda_electrostatics': np.linspace(1, 0, n_lambda),
-                'lambda_sterics': np.linspace(1, 0, n_lambda)}
+
+    #protocol = {'temperature': thermodynamic_state.temperature * np.ones([n_lambda]),
+    #            'lambda_electrostatics': np.linspace(1, 0, n_lambda),
+    #            'lambda_sterics': np.linspace(1, 0, n_lambda)}
+    # DEBUG
+    protocol = dict()
+    protocol['lambda_electrostatics'] = np.array([1.00, 0.75, 0.50, 0.37, 0.25, 0.12, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00])
+    protocol['lambda_sterics']        = np.array([1.00, 1.00, 1.00, 1.00, 1.00, 1.00, 1.00, 0.95, 0.90, 0.85, 0.80, 0.75, 0.70, 0.65, 0.60, 0.50, 0.40, 0.30, 0.25, 0.20, 0.15, 0.10, 0.05, 0.00])
+    n_lambda = len(protocol['lambda_electrostatics'])
+
+    protocol['temperature'] = thermodynamic_state.temperature * np.ones([n_lambda])
     if system.usesPeriodicBoundaryConditions():
         protocol['pressure'] = thermodynamic_state.pressure * np.ones([n_lambda])
 
@@ -232,9 +255,10 @@ def run_phase(molecule, system, topology, thermodynamic_state, phase):
 
     # Run the combined Hamiltonian replica exchange + parallel tempering simulation.
     from openmmtools.multistate import ReplicaExchangeSampler, MultiStateReporter
-    sampler = ReplicaExchangeSampler(mcmc_moves=mcmc_move, number_of_iterations=n_iterations)
-    reporter = MultiStateReporter(storage_path, checkpoint_interval=n_iterations)
+    sampler = ReplicaExchangeSampler(mcmc_moves=mcmc_move, number_of_iterations=niterations)
+    reporter = MultiStateReporter(storage_path, checkpoint_interval=niterations)
     sampler.create(thermodynamic_states=compound_states, sampler_states=sampler_states, storage=reporter)
+    sampler.online_analysis_interval = online_analysis_interval
 
     # Setup context cache for multistate samplers
     from openmmtools.cache import ContextCache
@@ -247,12 +271,69 @@ def run_phase(molecule, system, topology, thermodynamic_state, phase):
 
     # Run the sampler
     from rich.progress import track
-    for iteration in track(range(n_iterations), description=f"Running {phase} phase..."):
+    for iteration in track(range(niterations), description=f"Running {phase} phase..."):
         sampler.run(1)
 
     # Clean up to free up resources
     del sampler
     del context_cache
+
+@click.command()
+@click.option('--filepath', 
+              required=True,
+              help='File path to store output')
+def analyze(filepath):
+    """
+    Analyze the hydration free energy of a specified molecule
+
+    \b
+    Parameters
+    ----------
+    filepath : str
+        The filepath containing the simulation NetCDF and YAML files.
+
+    """
+    import yaml
+    import os
+
+    # Thermodynamic parameters for simulation
+    # TODO: Find a way to harmonize temperature between methods
+    from openmm import unit
+    temperature = 298.0 * unit.kelvin
+
+    # TODO: Improve how statistics are handled
+
+    free_energy = dict()    
+    phases = ['vacuum', 'solvent']
+    for phase in phases:
+        filename = os.path.join(filepath, phase +  '_real_time_analysis.yaml')
+        with open(filename, 'rt') as infile:
+            estimates = yaml.safe_load(infile)
+        df = estimates[-1]['mbar_analysis']['free_energy_in_kT']
+        ddf = estimates[-1]['mbar_analysis']['standard_error_in_kT']
+        free_energy[phase] = (df, ddf)
     
+    # Compute in kT
+    import numpy as np
+    df = free_energy['vacuum'][0] - free_energy['solvent'][0]
+    ddf = np.sqrt(free_energy['vacuum'][1]**2 + free_energy['solvent'][1]**2)
+
+    # Convert to kcal/mol
+    from openmm import unit
+    from openmmtools.constants import kB
+    kT = kB * temperature
+    df *= (kT / unit.kilocalories_per_mole)
+    ddf *= (kT / unit.kilocalories_per_mole)
+
+    # TODO: Format this with appropriate sig figs
+    print(f'hydration free energy: {df} +- {ddf} kcal/mol')
+
+    # TODO: Write out to a file?
+
+    return df, ddf
+
+cli.add_command(run)
+cli.add_command(analyze)
+
 if __name__ == '__main__':
     cli()

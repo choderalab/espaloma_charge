@@ -10,6 +10,7 @@ dependencies:
   - openeye-toolkits
   - click
   - rich
+  - pyyaml
   - pip
   - pip:
     - git+https://github.com/choderalab/espaloma_charge.git
