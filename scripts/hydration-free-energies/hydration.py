@@ -21,17 +21,21 @@ def cli():
 @click.option('--method', 
               default='espaloma-am1bcc',
               help='The charge model to use from the toolkit.')
-def run(smiles, toolkit='', method='espaloma-am1bcc'):
+@click.option('--forcefield', 
+              default='openff-2.0.0',
+              help='Small molecule force field to use')
+def run(smiles, toolkit, method, forcefield):
     """
     Compute the hydration free energy of a specified molecule
 
+    \b
     Parameters
     ----------
     smiles : str
         The SMILES string of the compound whose hydration free energy is to be computed.
         The SMILES string can have explicit or implicit protons.
         The compound must be neutral.
-    toolkit : str, optional, default='EspalomaCharge'
+    toolkit : str
         The toolkit to use for assigning charges.
         Valid options are ['EspalomaCharge', 'AmberTools', 'OpenEye', 'RDKit']
         'ToolkitWrapper' is appended to the toolkit name.
@@ -42,6 +46,12 @@ def run(smiles, toolkit='', method='espaloma-am1bcc'):
             'AmberTools' : ['am1bcc', 'am1-mulliken', 'gasteiger']
             'OpenEye' : ['am1bcc', 'am1-mulliken', 'gasteiger', 'mmff94', 'am1bccnosymspt', 'am1elf10', 'am1bccelf10']
             'RDKit' : ['mmff94'] 
+    forcefield : str
+        Small molecule force field to use
+        Valid options depend on openff force fields installed, but include
+        ['gaff-1.8', 'gaff-2.1', 'gaff-2.11']
+        ['openff-1.2.1', 'openff-1.3.1', 'openff-2.0.0']
+            see https://github.com/openforcefield/openff-forcefields for complete list of available openff force field versions
     """
     # Create an OpenFF Molecule object
     from openff.toolkit.topology import Molecule
@@ -60,61 +70,142 @@ def run(smiles, toolkit='', method='espaloma-am1bcc'):
     else:
         import openff.toolkit.utils.toolkits
         toolkit_wrapper = getattr(openff.toolkit.utils.toolkits, toolkit_wrapper_name)()
-
-    print(toolkit_wrapper)
     molecule.assign_partial_charges(method, toolkit_registry=toolkit_wrapper)
 
     # DEBUG
     print(f'Assigned partial charges from toolkit {toolkit} : {method}')
     print(molecule.partial_charges)
 
-    #
-    # TODO: Refactor the below
-    #
-
     # Generate positions
     molecule.generate_conformers(n_conformers=1)
-    positions = molecule.conformers[0].to_openmm()
-
-    # Create vacuum OpenMM topology
-    openmm_topology = molecule.to_topology().to_openmm()
-    # Create vacuum system
-    from openmm import unit
-    from openmm import app
-    forcefields = ['amber/ff14SB.xml', 'amber/tip3p_standard.xml']
-    small_molecule_forcefield = 'gaff-2.11'
-    nonperiodic_forcefield_kwargs = { 'constraints' : app.HBonds, 'rigidWater' : True, 'removeCMMotion' : False, 'hydrogenMass' : 4*unit.amu }
-    periodic_forcefield_kwargs = { 'constraints' : app.HBonds, 'rigidWater' : True, 'removeCMMotion' : False, 'hydrogenMass' : 4*unit.amu, 'nonbondedMethod' : app.PME }
-    cache = 'db.json'
-    from openmmforcefields.generators import SystemGenerator
-    system_generator = SystemGenerator(forcefields=forcefields, small_molecule_forcefield=small_molecule_forcefield, 
-        nonperiodic_forcefield_kwargs=nonperiodic_forcefield_kwargs, periodic_forcefield_kwargs=periodic_forcefield_kwargs, cache=cache)
-    # Create an OpenMM System from an OpenMM Topology object
-    system = system_generator.create_system(openmm_topology, molecules=[molecule])
-
-    # Simulation parameters
+ 
+    # Thermodynamic parameters for simulation
     from openmm import unit
     temperature = 298.0 * unit.kelvin
-    collision_rate = 5.0 / unit.picoseconds
-    timestep = 4.0 * unit.femtoseconds
-    n_steps = 250 # number of steps per iteration
-    reassign_velocities = False # whether to reassign velocities every iteration
+    pressure = 1.0 * unit.atmospheres
+
+    # Set up vacuum and solvent simulations
+    import openmm
+    from openmm import app
+    ffxml_forcefields = ['amber/tip3p_standard.xml'] # OpenMM ffxml solvent force field
+    solvent_model = 'tip3p' # solvent model for Modeller.addSolvent()
+    padding = 20.0 * unit.angstroms # padding for solvent box construction
+    hydrogen_mass = 4.0 * unit.amu
+    nonperiodic_forcefield_kwargs = { 'constraints' : app.HBonds, 'rigidWater' : True, 'removeCMMotion' : False, 'hydrogenMass' : hydrogen_mass }
+    periodic_forcefield_kwargs = { 'constraints' : app.HBonds, 'rigidWater' : True, 'removeCMMotion' : False, 'hydrogenMass' : hydrogen_mass, 'nonbondedMethod' : app.PME }
+    from openmmforcefields.generators import SystemGenerator
+    barostat = openmm.MonteCarloBarostat(pressure, temperature) # reference barostat for adding barostat to generated systems
+    system_generator = SystemGenerator(forcefields=ffxml_forcefields, small_molecule_forcefield=forcefield, 
+        nonperiodic_forcefield_kwargs=nonperiodic_forcefield_kwargs, periodic_forcefield_kwargs=periodic_forcefield_kwargs)
+
+    # Force the SystemGenerator to generate and memorize parameters for the small molecule
+    system_generator.create_system(molecule.to_topology().to_openmm(), molecules=[molecule])
+
+    # Generate OpenMM Topology and positions for each phase
+    openff_topology = dict() # openff_topology[phase] is the OpenFF Topology for phase, where phase is one of ['vacuum', 'solvent']
 
     #
-    # Vacuum phase
+    # Vacuum phase setup
     #
+
+    openff_topology['vacuum'] = molecule.to_topology() # OpenFF Topology
+
+    #
+    # Solvent phase setup
+    #
+
+    # Use openmm.app.Modeller to add solvent
+    from openmm.app import Modeller
+    modeller = Modeller(molecule.to_topology().to_openmm(), molecule.conformers[0].to_openmm())
+    modeller.addSolvent(system_generator.forcefield, model=solvent_model, padding=padding)
+    # Transform OpenMM Topology and positions back into OpenFF Topology
+    water = Molecule.from_smiles('HOH')
+    from openff.toolkit.topology import Topology
+    openff_topology['solvent'] = Topology.from_openmm(modeller.topology, unique_molecules=[molecule, water])
+    import openff.units.openmm
+    openff_topology['solvent'].set_positions( openff.units.openmm.from_openmm(modeller.positions) )
+
+    #
+    # Run simulations
+    #
+
+    for phase in ['vacuum', 'solvent']:
+        # Modify the SystemGenerator to work around bug in openmmforcefields <=0.11.2 : https://github.com/openmm/openmmforcefields/issues/252
+        match phase:
+            case 'solvent':
+                system_generator.barostat = barostat
+            case 'vacuum':
+                system_generator.barostat = None
+
+        # Create the OpenMM System
+        system = system_generator.create_system(openff_topology[phase].to_openmm(), molecules=[molecule])
+
+        # Define the thermodynamic state
+        from openmmtools.states import ThermodynamicState
+        match phase:
+            case 'solvent':
+                thermodynamic_state = ThermodynamicState(system=system, temperature=temperature, pressure=pressure)
+            case 'vacuum':
+                thermodynamic_state = ThermodynamicState(system=system, temperature=temperature)
+
+        # Run the alchemical free energy calculation for this phase
+        run_phase(molecule, system, openff_topology[phase], thermodynamic_state, phase)
+
+cli.add_command(run)
+
+def run_phase(molecule, system, topology, thermodynamic_state, phase):
+    """Run an alchemical free energy calculation for a single phase.
+
+    Parameters
+    ----------
+    molecule : openff.toolkit.topology.Molecule
+        The molecule to be alchemically annihilated/decoupled
+    system : openmm.System
+        The System to alchemically modify
+    topology : openff.toolkit.topology.Topology
+        OpenFF Topology associated with the System
+    thermodynamic_state : openmmtools.states.ThermodynamicState
+        The thermodynamic state to run the simulation at
+    phase : str
+        The phase to simulate: ['vacuum', 'solvent']
+    """
+    ALLOWED_PHASES = ['vacuum', 'solvent']
+    if phase not in ALLOWED_PHASES:
+        raise ValueError(f"phase must be one of {ALLOWED_PHASES}; specified '{phase}'")
+
+    # Write out PDB file
+    with open(phase + '.pdb', 'wt') as outfile:
+        from openmm.app import PDBFile
+        PDBFile.writeFile(topology.to_openmm(), topology.get_positions().to_openmm(), outfile)
+
+    # Simulation parameters
+    import openmm
+    from openmm import unit
+    collision_rate = 5.0 / unit.picoseconds
+    timestep = 4.0 * unit.femtoseconds
+    n_steps = 25 # number of steps per iteration
+    reassign_velocities = False # whether to reassign velocities every iteration
 
     # Define the region of the System to be alchemically modified.
     from openmmtools.alchemy import AlchemicalRegion, AbsoluteAlchemicalFactory, AlchemicalState
     alchemical_atoms = list(range(molecule.n_atoms))
-    alchemical_region = AlchemicalRegion(alchemical_atoms=alchemical_atoms)
-    factory = AbsoluteAlchemicalFactory()
+    alchemical_region = AlchemicalRegion(alchemical_atoms=alchemical_atoms, softcore_beta=0.5)
+    factory = AbsoluteAlchemicalFactory(alchemical_pme_treatment='direct-space')
     alchemical_system = factory.create_alchemical_system(system, alchemical_region)
 
     # Simulation parameters
-    n_lambda = 6 # number of alchemical states
-    n_iterations = 1000
-    storage_path = 'vacuum.nc'
+    storage_path = phase + '.nc'
+    match phase:
+        case 'vacuum':
+            n_lambda = 6 # number of alchemical states
+            n_iterations = 500
+            platform = openmm.Platform.getPlatformByName('CPU')
+        case 'solvent':
+            n_lambda = 20 # number of alchemical states
+            n_iterations = 500
+            platform = openmm.Platform.getPlatformByName('CUDA')
+            platform.setPropertyDefaultValue('Precision', 'mixed')
+            platform.setPropertyDefaultValue('DeterministicForces', 'true')
 
     # Define sampler
     from openmmtools.mcmc import LangevinDynamicsMove
@@ -122,16 +213,22 @@ def run(smiles, toolkit='', method='espaloma-am1bcc'):
 
     # Initialize compound thermodynamic states at different temperatures and alchemical states.
     import numpy as np
-    protocol = {'temperature': temperature * np.ones([n_lambda]),
+    protocol = {'temperature': thermodynamic_state.temperature * np.ones([n_lambda]),
                 'lambda_electrostatics': np.linspace(1, 0, n_lambda),
                 'lambda_sterics': np.linspace(1, 0, n_lambda)}
+    if system.usesPeriodicBoundaryConditions():
+        protocol['pressure'] = thermodynamic_state.pressure * np.ones([n_lambda])
+
     alchemical_state = AlchemicalState.from_system(alchemical_system)
     from openmmtools.states import create_thermodynamic_state_protocol
     compound_states = create_thermodynamic_state_protocol(alchemical_system, protocol=protocol, composable_states=[alchemical_state])
 
     # Initialize sampler states
     from openmmtools.states import SamplerState
-    sampler_states = [ SamplerState(positions=positions) for _ in compound_states ]
+    sampler_state = SamplerState(positions=topology.get_positions().to_openmm())
+    if system.usesPeriodicBoundaryConditions():
+        sampler_state.box_vectors = system.getDefaultPeriodicBoxVectors()        
+    sampler_states = [ sampler_state for _ in compound_states ]
 
     # Run the combined Hamiltonian replica exchange + parallel tempering simulation.
     from openmmtools.multistate import ReplicaExchangeSampler, MultiStateReporter
@@ -139,13 +236,23 @@ def run(smiles, toolkit='', method='espaloma-am1bcc'):
     reporter = MultiStateReporter(storage_path, checkpoint_interval=n_iterations)
     sampler.create(thermodynamic_states=compound_states, sampler_states=sampler_states, storage=reporter)
 
+    # Setup context cache for multistate samplers
+    from openmmtools.cache import ContextCache
+    context_cache = ContextCache(capacity=None, time_to_live=None, platform=platform)
+    sampler.energy_context_cache = context_cache
+    sampler.sampler_context_cache = context_cache
+
+    # Minimize
+    sampler.minimize()
+
     # Run the sampler
     from rich.progress import track
-    for iteration in track(range(n_iterations), description="Running vacuum phase..."):
+    for iteration in track(range(n_iterations), description=f"Running {phase} phase..."):
         sampler.run(1)
+
+    # Clean up to free up resources
+    del sampler
+    del context_cache
     
-
-cli.add_command(run)
-
 if __name__ == '__main__':
     cli()

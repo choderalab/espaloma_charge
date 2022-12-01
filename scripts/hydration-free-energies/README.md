@@ -17,18 +17,27 @@ $ wget https://raw.githubusercontent.com/MobleyLab/FreeSolv/master/database.txt 
 
 ## Computing hydration free energies
 
-To run the hydration free energy calculation using the `EspalomaCharge` toolkit and `espaloma-am1bcc` charge method:
+The `python hydration.py run --smiles <smiles>` command will set up and run an alchemical hydration free energy calculation for the SMILES string `<smiles>.
+
+The `--toolkit` and `--method` arguments can be used to specify the toolkit (`EspalomaCharge`, `AmberTools`, `OpenEye`, `RDKit`) and charge method (depends on toolkit).
+
+To run the hydration free energy calculation using the `EspalomaCharge` toolkit and `espaloma-am1bcc` charge method for caffeiene:
 ```bash
-$ python hydration.py run --smiles CCO --toolkit EspalomaCharge --method espaloma-am1bcc
+$ python hydration.py run --smiles "CN1C=NC2=C1C(=O)N(C(=O)N2C)C" --toolkit EspalomaCharge --method espaloma-am1bcc
 ```
 To run the hydration free energy calculation using the `AmberTools` toolkit and `am1bcc` charge method:
 ```bash
-$ python hydration.py run --smiles CCO --toolkit AmberTools --method am1bcc
+$ python hydration.py run --smiles "CN1C=NC2=C1C(=O)N(C(=O)N2C)C" --toolkit AmberTools --method am1bcc
 ```
 To run the hydration free energy calculation using the `OpenEye` toolkit and `am1bccelf10` charge method:
 ```bash
-$ python hydration.py run --smiles CCO --toolkit OpenEye --method am1bccelf10
+$ python hydration.py run --smiles "CN1C=NC2=C1C(=O)N(C(=O)N2C)C" --toolkit OpenEye --method am1bccelf10
 ```
+
+The small molecule force field can be specified using the `--forcefield` flag.
+All force fields supported by the [`SystemGenerator`](https://github.com/openmm/openmmforcefields#automating-force-field-management-with-systemgenerator) are supported.
+
+**NOTE:** Existing NetCDF files will not be overwritten, but will instead be continued.
 
 ## Manifest
 * `freesolv.csv` - FreeSolv dataset ([retrieved 2022-11-29](https://raw.githubusercontent.com/MobleyLab/FreeSolv/master/database.txt) and renamed)
