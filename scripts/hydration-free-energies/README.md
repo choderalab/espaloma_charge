@@ -23,11 +23,12 @@ To set up and run a simulation, use
 ```bash
 $ python hydration.py run --smiles <smiles> --toolkit <toolkit> --method <method> --niterations <niterations> --forcefield <forcefield> --filepath <filepath>
 ```
-The `--smiles <smiles>` string specifies the SMILES string of the molecule you want to compute.
-The `--toolkit <toolkit>` and `--method <method>` arguments can be used to specify the toolkit (`EspalomaCharge`, `AmberTools`, `OpenEye`, `RDKit`) and charge method (depends on toolkit).
-The `--niterations <niterations>` specifies how many iterations (1 ps/iteration) to run (default: 1000).
-The `--forcefield <forcefield>` argument can specify any force fields supported by the [`SystemGenerator`](https://github.com/openmm/openmmforcefields#automating-force-field-management-with-systemgenerator) (e.g. `gaff-2.11`).
-The `--filepath <filepath>` argument specifies the directory in which simulation files should be written
+`python hydration.py run --help` will provide full help on arguments, but briefly:
+* The `--smiles <smiles>` string specifies the SMILES string of the molecule you want to compute.
+* The `--toolkit <toolkit>` and `--method <method>` arguments can be used to specify the toolkit (`EspalomaCharge`, `AmberTools`, `OpenEye`, `RDKit`) and charge method (depends on toolkit).
+* The `--niterations <niterations>` specifies how many iterations (1 ps/iteration) to run (default: 1000).
+* The `--forcefield <forcefield>` argument can specify any force fields supported by the [`SystemGenerator`](https://github.com/openmm/openmmforcefields#automating-force-field-management-with-systemgenerator) (e.g. `gaff-2.11`).
+* The `--filepath <filepath>` argument specifies the directory in which simulation files should be written
 
 A typical calculation will take ~1 hour.
 
