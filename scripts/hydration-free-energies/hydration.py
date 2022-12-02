@@ -391,6 +391,22 @@ def analyze(filepath):
         The filepath containing the simulation NetCDF and YAML files.
 
     """
+    df, ddf = analyze_single_calculation(filepath)
+    # TODO: Format this with appropriate sig figs
+    print(f'hydration free energy: {df} +- {ddf} kcal/mol')
+
+
+def analyze_single_calculation(filepath):
+    """
+    Analyze the hydration free energy of a specified molecule
+
+    \b
+    Parameters
+    ----------
+    filepath : str
+        The filepath containing the simulation NetCDF and YAML files.
+
+    """
     import yaml
     import os
 
@@ -423,9 +439,6 @@ def analyze(filepath):
     kT = kB * temperature
     df *= (kT / unit.kilocalories_per_mole)
     ddf *= (kT / unit.kilocalories_per_mole)
-
-    # TODO: Format this with appropriate sig figs
-    print(f'hydration free energy: {df} +- {ddf} kcal/mol')
 
     # TODO: Write out to a file?
 
@@ -465,10 +478,154 @@ def freesolv(index, toolkit, method, forcefield, filepath, niterations, write_pd
     import os
     run_all(smiles, toolkit, method, forcefield, os.path.join(filepath, name), niterations, write_pdb)
 
+@click.command()
+@click.option('--filepath', 
+              required=True,
+              help='Base file path containing FreeSolv calculations')
+@click.option('--label', 
+              default=None,
+              help='Label for calculations')
+@click.option('--outfile', 
+              required=True,
+              help='Output filename for CSV')
+def analyze_freesolv(filepath, label, outfile):
+    """Analyze 
+    """
+    import json
+    with open('freesolv.json', 'rt') as infile:
+        freesolv = json.load(infile)
+    
+    # DEBUG
+    #freesolv = { key : freesolv[key] for key in list(freesolv.keys())[0:20] }
+
+    records = list()
+    for name, freesolv_entry in freesolv.items():
+        record = dict()
+
+        record['name'] = name
+        record['SMILES'] = freesolv_entry['smiles']
+        record['IUPAC name'] = freesolv_entry['iupac']
+        
+        record['experimental hydration free energy (kcal/mol)'] = freesolv_entry['expt'] # kcal/mol
+        record['experimental hydration free energy uncertainty (kcal/mol)'] = freesolv_entry['d_expt'] # measurement uncertainty in kcal/mol
+        record['experimental hydration free energy DOI'] = freesolv_entry['expt_reference']
+
+        import os
+        import numpy as np
+        try:
+            smiles = freesolv_entry['smiles']
+            DeltaG_exp = freesolv_entry['expt'] # kcal/mol
+            dDeltaG_exp = freesolv_entry['d_expt'] # measurement uncertainty in kcal/mol
+
+            DeltaG_calc, dDeltaG_calc = analyze_single_calculation(os.path.join(filepath, name)) # in kcal/mol
+            DeltaG_error = DeltaG_calc - DeltaG_exp
+            dDeltaG_error = np.sqrt(dDeltaG_calc**2 + dDeltaG_exp**2)
+    
+            print(f'{name:20s} {smiles:85s} : exp {DeltaG_exp:8.2f} +- {dDeltaG_exp:5.2f} kcal/mol | calc {DeltaG_calc:8.2f} +- {dDeltaG_calc:5.2f} kcal/mol | calc-exp  {DeltaG_error:8.2f} +- {dDeltaG_error:5.2f} kcal/mol')
+
+            record[f'calculated hydration free energy {label} (kcal/mol)'] = DeltaG_calc
+            record[f'calculated hydration free energy uncertainty {label} (kcal/mol)'] = dDeltaG_calc
+
+            record[f'hydration free energy {label} error (kcal/mol)'] = DeltaG_error
+            record[f'hydration free energy uncertainty {label} error (kcal/mol)'] = dDeltaG_error
+        except FileNotFoundError as e:
+            pass
+
+        records.append(record)
+
+    # Write details
+    import pandas as pd
+    df = pd.DataFrame.from_records(records, columns=record.keys())
+    print(df)
+    df.to_csv(outfile, index=False)
+
+    # Write summary statistics
+    import numpy as np
+    errors = df[f'hydration free energy {label} error (kcal/mol)']
+    rmse = np.sqrt((errors**2).mean())
+    mue = np.abs(errors).mean()
+    print(f'RMSE : {rmse:8.3f} kcal/mol')
+    print(f'MUE  : {mue:8.3f} kcal/mol')
+
+    # Generate plot
+    import matplotlib as mpl
+    mpl.use('Agg')
+    import seaborn
+    import matplotlib.pyplot as plt
+    fig = plt.figure(figsize=[6,6])
+    plt.errorbar(
+        df[f'experimental hydration free energy (kcal/mol)'], 
+        df[f'calculated hydration free energy {label} (kcal/mol)'], 
+        fmt='k.',
+        xerr=df[f'experimental hydration free energy uncertainty (kcal/mol)'], 
+        yerr=df[f'calculated hydration free energy uncertainty {label} (kcal/mol)'],
+        )
+    xmin = min(df[f'experimental hydration free energy (kcal/mol)'].min(), df[f'calculated hydration free energy {label} (kcal/mol)'].min()) - 0.5
+    xmax = max(df[f'experimental hydration free energy (kcal/mol)'].max(), df[f'calculated hydration free energy {label} (kcal/mol)'].max()) + 0.5
+    plt.plot([xmin, xmax], [xmin, xmax], 'k-', linewidth=1)
+    plt.axis([xmin, xmax, xmin, xmax])
+    plt.title(f'{label}\nRMSE: {rmse:.2f} kcal/mol\nMUE: {mue:.2f} kcal/mol')
+    plt.xlabel('experimental hydration free energy (kcal/mol)')
+    plt.ylabel('calculated hydration free energy (kcal/mol)')
+    plt.tight_layout()
+    figure_filename = label + '.pdf'
+    plt.savefig(figure_filename)
+    print(f'Figure written to {figure_filename}')
+
+@click.command()
+@click.option('--filepath', 
+              required=True,
+              help='Base file path containing FreeSolv calculations')
+@click.option('--label', 
+              default=None,
+              help='Label for calculations')
+@click.option('--outfile', 
+              required=True,
+              help='Output filename for CSV')
+def analyze_freesolv_pandas(filepath, label, outfile):
+    import pandas as pd
+    df = pd.read_csv('freesolv.csv', sep=';', header=0, comment='#')
+    ncompounds = len(df)
+
+    DeltaG_calc_series = list()
+    dDeltaG_calc_series = list()
+    for index in range(ncompounds):
+        entry = df.iloc[index].to_dict()
+
+        name = entry['compound id'].strip()
+        smiles = entry['SMILES'].strip()        
+        DeltaG_exp = entry['experimental value (kcal/mol)']
+        dDeltaG_exp = entry['experimental uncertainty (kcal/mol)']
+        DeltaG_mobley = entry['Mobley group calculated value (GAFF) (kcal/mol)']
+        dDeltaG_mobley = entry['calculated uncertainty (kcal/mol)']        
+
+        import os
+        import numpy as np
+        try:
+            DeltaG_calc, dDeltaG_calc = analyze_single_calculation(os.path.join(filepath, name)) # in kcal/mol
+            DeltaG_error = DeltaG_calc - DeltaG_exp
+            dDeltaG_error = np.sqrt(dDeltaG_calc**2 + dDeltaG_exp**2)
+            print(f'{name:20s} {smiles:85s} : exp {DeltaG_exp:8.2f} +- {dDeltaG_exp:5.2f} kcal/mol | Mobley {DeltaG_mobley:8.2f} +- {dDeltaG_mobley:5.2f} kcal/mol | calc {DeltaG_calc:8.2f} +- {dDeltaG_calc:5.2f} kcal/mol | calc-exp  {DeltaG_error:8.2f} +- {dDeltaG_error:5.2f} kcal/mol')
+
+            DeltaG_calc_series.append(DeltaG_calc)
+            dDeltaG_calc_series.append(dDeltaG_calc)
+        except FileNotFoundError as e:
+            DeltaG_calc_series.append(None)
+            dDeltaG_calc_series.append(None)
+
+    # Update dataframe
+    if label is None:
+        label = ""
+    df.insert(7, f"openmmtools calculated value {label} (kcal/mol)", DeltaG_calc_series)
+    df.insert(8, f"openmmtools calculated value {label} calculated uncertainty (kcal/mol)", dDeltaG_calc_series)
+    print(df)
+    df.to_csv(outfile, index=False)
+
 
 cli.add_command(run)
 cli.add_command(analyze)
 cli.add_command(freesolv)
+cli.add_command(analyze_freesolv)
 
 if __name__ == '__main__':
     cli()

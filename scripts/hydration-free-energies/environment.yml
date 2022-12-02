@@ -11,7 +11,11 @@ dependencies:
   - click
   - rich
   - pyyaml
+  # for analysis
   - pandas
+  - seaborn
+  - matplotlib
+  # install espaloma_charge (until it appears on conda-forge)
   - pip
   - pip:
     - git+https://github.com/choderalab/espaloma_charge.git

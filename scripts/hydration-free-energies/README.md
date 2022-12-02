@@ -13,6 +13,7 @@ $ mamba activate hydration
 Download the [FreeSolv database](https://raw.githubusercontent.com/MobleyLab/FreeSolv/master/database.txt):
 ```bash
 $ wget https://raw.githubusercontent.com/MobleyLab/FreeSolv/master/database.txt -O freesolv.csv
+$ wget https://raw.githubusercontent.com/MobleyLab/FreeSolv/master/database.json -O freesolv.json
 ```
 
 ## Computing hydration free energies
