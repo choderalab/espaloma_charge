@@ -28,9 +28,12 @@ def cli():
               required=True,
               help='File path to store output')
 @click.option('--niterations', 
-              default=1000,
+              default=5000,
               help='Number of iterations to run')
-def run(smiles, toolkit, method, forcefield, filepath, niterations):
+@click.option('--write-pdb', 
+              is_flag=True,
+              help='Write PDB files of initial models')   
+def run(smiles, toolkit, method, forcefield, filepath, niterations, write_pdb):
     """
     Compute the hydration free energy of a specified molecule
 
@@ -62,6 +65,8 @@ def run(smiles, toolkit, method, forcefield, filepath, niterations):
         The filepath containing the simulation NetCDF and YAML files.   
     niterations : int
         The number of iterations to run
+    write_pdb : bool
+        If True, write PDB file of intiial models        
     """
     # Create an OpenFF Molecule object
     from openff.toolkit.topology import Molecule
@@ -99,10 +104,11 @@ def run(smiles, toolkit, method, forcefield, filepath, niterations):
     from openmm import app
     ffxml_forcefields = ['amber/tip3p_standard.xml'] # OpenMM ffxml solvent force field
     solvent_model = 'tip3p' # solvent model for Modeller.addSolvent()
-    padding = 12.0 * unit.angstroms # padding for solvent box construction
-    hydrogen_mass = 4.0 * unit.amu
+    padding = 14.0 * unit.angstroms # padding for solvent box construction
+    hydrogen_mass = 3.8 * unit.amu
+    nonbonded_cutoff = 9.0 * unit.angstroms
     nonperiodic_forcefield_kwargs = { 'constraints' : app.HBonds, 'rigidWater' : True, 'removeCMMotion' : False, 'hydrogenMass' : hydrogen_mass }
-    periodic_forcefield_kwargs = { 'constraints' : app.HBonds, 'rigidWater' : True, 'removeCMMotion' : False, 'hydrogenMass' : hydrogen_mass, 'nonbondedMethod' : app.PME }
+    periodic_forcefield_kwargs = { 'constraints' : app.HBonds, 'rigidWater' : True, 'removeCMMotion' : False, 'hydrogenMass' : hydrogen_mass, 'nonbondedMethod' : app.PME, 'nonbondedCutoff' : nonbonded_cutoff }
     from openmmforcefields.generators import SystemGenerator
     barostat = openmm.MonteCarloBarostat(pressure, temperature) # reference barostat for adding barostat to generated systems
     system_generator = SystemGenerator(forcefields=ffxml_forcefields, small_molecule_forcefield=forcefield, 
@@ -160,9 +166,9 @@ def run(smiles, toolkit, method, forcefield, filepath, niterations):
                 thermodynamic_state = ThermodynamicState(system=system, temperature=temperature)
 
         # Run the alchemical free energy calculation for this phase
-        run_phase(molecule, system, openff_topology[phase], thermodynamic_state, phase, filepath, niterations)
+        run_phase(molecule, system, openff_topology[phase], thermodynamic_state, phase, filepath, niterations, write_pdb)
 
-def run_phase(molecule, system, topology, thermodynamic_state, phase, filepath, niterations):
+def run_phase(molecule, system, topology, thermodynamic_state, phase, filepath, niterations, write_pdb):
     """Run an alchemical free energy calculation for a single phase.
 
     Parameters
@@ -181,15 +187,72 @@ def run_phase(molecule, system, topology, thermodynamic_state, phase, filepath, 
         The filepath containing the simulation NetCDF and YAML files.  
     niterations : int
         The number of iterations to run
+    write_pdb : bool
+        If True, write PDB file of intiial models
     """
+    import logging
+    logger = logging.getLogger(__name__)
+
     ALLOWED_PHASES = ['vacuum', 'solvent']
     if phase not in ALLOWED_PHASES:
         raise ValueError(f"phase must be one of {ALLOWED_PHASES}; specified '{phase}'")
 
-    # Write out PDB file
-    #with open(phase + '.pdb', 'wt') as outfile:
-    #    from openmm.app import PDBFile
-    #    PDBFile.writeFile(topology.to_openmm(), topology.get_positions().to_openmm(), outfile)
+    # Activate logging
+    import logging
+    import os
+    log_filename = os.path.join(filepath, phase + '.log')
+    logging.basicConfig(filename=log_filename, encoding='utf-8', level=logging.INFO)
+
+    # Get initial positions
+    positions = topology.get_positions().to_openmm()
+
+    # Write out initial PDB file
+    if write_pdb:
+        import os
+        filename = os.path.join(filepath, phase + '-initial.pdb')
+        with open(filename, 'wt') as outfile:
+            from openmm.app import PDBFile
+            PDBFile.writeFile(topology.to_openmm(), positions, outfile)
+
+    # Simulation parameters
+    import os
+    import openmm
+    storage_path = os.path.join(filepath, phase + '.nc')
+    online_analysis_interval = 25
+    match phase:
+        case 'vacuum':
+            n_lambda = 8 # number of alchemical states
+            platform = openmm.Platform.getPlatformByName('CPU')
+
+            MAX_VACUUM_ITERATIONS = 200
+            if niterations > MAX_VACUUM_ITERATIONS:
+                print(f'capping number of vacuum iterations at {MAX_VACUUM_ITERATIONS}')
+                niterations = MAX_VACUUM_ITERATIONS
+        case 'solvent':
+            n_lambda = 24 # number of alchemical states
+            platform = openmm.Platform.getPlatformByName('CUDA')
+            platform.setPropertyDefaultValue('Precision', 'mixed')
+            platform.setPropertyDefaultValue('DeterministicForces', 'true')
+
+    # Minimize
+    logger.debug('Minimizing...')
+    import openmm
+    integrator = openmm.VerletIntegrator(0.001)
+    context = openmm.Context(system, integrator, platform)
+    context.setPositions(positions)
+    logger.debug(f'  Initial energy: {context.getState(getEnergy=True).getPotentialEnergy()}')
+    openmm.LocalEnergyMinimizer.minimize(context)
+    logger.debug(f'  Final energy:   {context.getState(getEnergy=True).getPotentialEnergy()}')
+    positions = context.getState(getPositions=True).getPositions(asNumpy=True)
+    del context, integrator
+
+    # Write out initial PDB file
+    if write_pdb:
+        import os
+        filename = os.path.join(filepath, phase + '-minimized.pdb')
+        with open(filename, 'wt') as outfile:
+            from openmm.app import PDBFile
+            PDBFile.writeFile(topology.to_openmm(), positions, outfile)
 
     # Simulation parameters
     import openmm
@@ -202,25 +265,15 @@ def run_phase(molecule, system, topology, thermodynamic_state, phase, filepath, 
     # Define the region of the System to be alchemically modified.
     from openmmtools.alchemy import AlchemicalRegion, AbsoluteAlchemicalFactory, AlchemicalState
     alchemical_atoms = list(range(molecule.n_atoms))
+
+    # Standard alchemical factory
+    alchemical_region = AlchemicalRegion(alchemical_atoms=alchemical_atoms)    
+    factory = AbsoluteAlchemicalFactory()
+    # Fused softcore alchemical factory (experimental)
     #alchemical_region = AlchemicalRegion(alchemical_atoms=alchemical_atoms, softcore_beta=1.0)
     #factory = AbsoluteAlchemicalFactory(alchemical_pme_treatment='direct-space')
-    alchemical_region = AlchemicalRegion(alchemical_atoms=alchemical_atoms)
-    factory = AbsoluteAlchemicalFactory()
-    alchemical_system = factory.create_alchemical_system(system, alchemical_region)
 
-    # Simulation parameters
-    import os
-    storage_path = os.path.join(filepath, phase + '.nc')
-    online_analysis_interval = 25
-    match phase:
-        case 'vacuum':
-            n_lambda = 6 # number of alchemical states
-            platform = openmm.Platform.getPlatformByName('CPU')
-        case 'solvent':
-            n_lambda = 30 # number of alchemical states
-            platform = openmm.Platform.getPlatformByName('CUDA')
-            platform.setPropertyDefaultValue('Precision', 'mixed')
-            platform.setPropertyDefaultValue('DeterministicForces', 'true')
+    alchemical_system = factory.create_alchemical_system(system, alchemical_region)
 
     # Define sampler
     from openmmtools.mcmc import LangevinDynamicsMove
@@ -228,15 +281,20 @@ def run_phase(molecule, system, topology, thermodynamic_state, phase, filepath, 
 
     # Initialize compound thermodynamic states at different temperatures and alchemical states.
     import numpy as np
-
-    #protocol = {'temperature': thermodynamic_state.temperature * np.ones([n_lambda]),
-    #            'lambda_electrostatics': np.linspace(1, 0, n_lambda),
-    #            'lambda_sterics': np.linspace(1, 0, n_lambda)}
-    # DEBUG
     protocol = dict()
-    protocol['lambda_electrostatics'] = np.array([1.00, 0.75, 0.50, 0.37, 0.25, 0.12, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00])
-    protocol['lambda_sterics']        = np.array([1.00, 1.00, 1.00, 1.00, 1.00, 1.00, 1.00, 0.95, 0.90, 0.85, 0.80, 0.75, 0.70, 0.65, 0.60, 0.50, 0.40, 0.30, 0.25, 0.20, 0.15, 0.10, 0.05, 0.00])
-    n_lambda = len(protocol['lambda_electrostatics'])
+    # TODO: Use thermodynamic trailblazing to automatically determine number and spacing of alchemical states
+
+    # Two phase
+    n1 = int(n_lambda/2) # number of steps for turning off electrostatics
+    n2 = n_lambda - int(n_lambda/2) + 1 # number of steps for turning off Lennard-Jones
+    protocol['lambda_electrostatics'] = np.concatenate( [np.linspace(1, 0, n1), np.linspace(0, 0, n2)[1:]] )
+    protocol['lambda_sterics']        = np.concatenate( [np.linspace(1, 1, n1), np.linspace(1, 0, n2)[1:]] )
+    assert len(protocol['lambda_electrostatics']) == n_lambda
+
+    # One phase (requires softcore)
+    #protocol['lambda_electrostatics'] = np.linspace(1, 0, n_lambda)
+    #protocol['lambda_sterics']        = np.linspace(1, 0, n_lambda)
+    #assert len(protocol['lambda_electrostatics']) == n_lambda
 
     protocol['temperature'] = thermodynamic_state.temperature * np.ones([n_lambda])
     if system.usesPeriodicBoundaryConditions():
@@ -248,7 +306,7 @@ def run_phase(molecule, system, topology, thermodynamic_state, phase, filepath, 
 
     # Initialize sampler states
     from openmmtools.states import SamplerState
-    sampler_state = SamplerState(positions=topology.get_positions().to_openmm())
+    sampler_state = SamplerState(positions=positions)
     if system.usesPeriodicBoundaryConditions():
         sampler_state.box_vectors = system.getDefaultPeriodicBoxVectors()        
     sampler_states = [ sampler_state for _ in compound_states ]
@@ -262,12 +320,11 @@ def run_phase(molecule, system, topology, thermodynamic_state, phase, filepath, 
 
     # Setup context cache for multistate samplers
     from openmmtools.cache import ContextCache
-    context_cache = ContextCache(capacity=None, time_to_live=None, platform=platform)
-    sampler.energy_context_cache = context_cache
-    sampler.sampler_context_cache = context_cache
-
+    sampler.energy_context_cache = ContextCache(capacity=None, time_to_live=None, platform=platform)
+    sampler.sampler_context_cache = ContextCache(capacity=None, time_to_live=None, platform=platform)
+    
     # Minimize
-    sampler.minimize()
+    #sampler.minimize()
 
     # Run the sampler
     from rich.progress import track
