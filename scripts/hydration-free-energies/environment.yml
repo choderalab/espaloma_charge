@@ -11,6 +11,7 @@ dependencies:
   - click
   - rich
   - pyyaml
+  - pandas
   - pip
   - pip:
     - git+https://github.com/choderalab/espaloma_charge.git

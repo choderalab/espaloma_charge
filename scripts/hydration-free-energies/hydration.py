@@ -68,6 +68,43 @@ def run(smiles, toolkit, method, forcefield, filepath, niterations, write_pdb):
     write_pdb : bool
         If True, write PDB file of intiial models        
     """
+    run_all(smiles, toolkit, method, forcefield, filepath, niterations, write_pdb)
+
+def run_all(smiles, toolkit, method, forcefield, filepath, niterations, write_pdb):
+    """
+    Compute the hydration free energy of a specified molecule
+
+    \b
+    Parameters
+    ----------
+    smiles : str
+        The SMILES string of the compound whose hydration free energy is to be computed.
+        The SMILES string can have explicit or implicit protons.
+        The compound must be neutral.
+    toolkit : str
+        The toolkit to use for assigning charges.
+        Valid options are ['EspalomaCharge', 'AmberTools', 'OpenEye', 'RDKit']
+        'ToolkitWrapper' is appended to the toolkit name.
+    method : str, optional, default='espaloma-am1bcc1'
+        The method to use for assigning partial charges.
+        Valid options depend on the toolkit:
+            'espaloma' : ['espaloma-am1bcc']
+            'AmberTools' : ['am1bcc', 'am1-mulliken', 'gasteiger']
+            'OpenEye' : ['am1bcc', 'am1-mulliken', 'gasteiger', 'mmff94', 'am1bccnosymspt', 'am1elf10', 'am1bccelf10']
+            'RDKit' : ['mmff94'] 
+    forcefield : str
+        Small molecule force field to use
+        Valid options depend on openff force fields installed, but include
+        ['gaff-1.8', 'gaff-2.1', 'gaff-2.11']
+        ['openff-1.2.1', 'openff-1.3.1', 'openff-2.0.0']
+            see https://github.com/openforcefield/openff-forcefields for complete list of available openff force field versions
+    filepath : str
+        The filepath containing the simulation NetCDF and YAML files.   
+    niterations : int
+        The number of iterations to run
+    write_pdb : bool
+        If True, write PDB file of intiial models        
+    """
     # Create an OpenFF Molecule object
     from openff.toolkit.topology import Molecule
     molecule = Molecule.from_smiles(smiles)
@@ -200,6 +237,8 @@ def run_phase(molecule, system, topology, thermodynamic_state, phase, filepath, 
     # Activate logging
     import logging
     import os
+    if not os.path.exists(filepath):
+        os.makedirs(filepath, exist_ok=True)
     log_filename = os.path.join(filepath, phase + '.log')
     logging.basicConfig(filename=log_filename, encoding='utf-8', level=logging.INFO)
 
@@ -219,6 +258,7 @@ def run_phase(molecule, system, topology, thermodynamic_state, phase, filepath, 
     import openmm
     storage_path = os.path.join(filepath, phase + '.nc')
     online_analysis_interval = 25
+    checkpoint_interval = 100
     match phase:
         case 'vacuum':
             n_lambda = 8 # number of alchemical states
@@ -267,7 +307,7 @@ def run_phase(molecule, system, topology, thermodynamic_state, phase, filepath, 
     alchemical_atoms = list(range(molecule.n_atoms))
 
     # Standard alchemical factory
-    alchemical_region = AlchemicalRegion(alchemical_atoms=alchemical_atoms)    
+    alchemical_region = AlchemicalRegion(alchemical_atoms=alchemical_atoms)
     factory = AbsoluteAlchemicalFactory()
     # Fused softcore alchemical factory (experimental)
     #alchemical_region = AlchemicalRegion(alchemical_atoms=alchemical_atoms, softcore_beta=1.0)
@@ -314,7 +354,7 @@ def run_phase(molecule, system, topology, thermodynamic_state, phase, filepath, 
     # Run the combined Hamiltonian replica exchange + parallel tempering simulation.
     from openmmtools.multistate import ReplicaExchangeSampler, MultiStateReporter
     sampler = ReplicaExchangeSampler(mcmc_moves=mcmc_move, number_of_iterations=niterations)
-    reporter = MultiStateReporter(storage_path, checkpoint_interval=niterations)
+    reporter = MultiStateReporter(storage_path, checkpoint_interval=checkpoint_interval)
     sampler.create(thermodynamic_states=compound_states, sampler_states=sampler_states, storage=reporter)
     sampler.online_analysis_interval = online_analysis_interval
 
@@ -332,8 +372,9 @@ def run_phase(molecule, system, topology, thermodynamic_state, phase, filepath, 
         sampler.run(1)
 
     # Clean up to free up resources
+    del sampler.energy_context_cache
+    del sampler.sampler_context_cache
     del sampler
-    del context_cache
 
 @click.command()
 @click.option('--filepath', 
@@ -390,8 +431,44 @@ def analyze(filepath):
 
     return df, ddf
 
+@click.command()
+@click.option('--index', 
+              required=True,
+              type=click.INT,
+              help='Index (starting with 1) into freesolv compound database')
+@click.option('--toolkit',
+              default='EspalomaCharge',
+              type=click.Choice(['EspalomaCharge', 'AmberTools', 'OpenEye', 'RDKit']),
+              help='Toolkit to use for assigning charges.')              
+@click.option('--method', 
+              default='espaloma-am1bcc',
+              help='The charge model to use from the toolkit.')
+@click.option('--forcefield', 
+              default='openff-2.0.0',
+              help='Small molecule force field to use')
+@click.option('--filepath', 
+              required=True,
+              help='File path to store output')
+@click.option('--niterations', 
+              default=5000,
+              help='Number of iterations to run')
+@click.option('--write-pdb', 
+              is_flag=True,
+              help='Write PDB files of initial models')   
+def freesolv(index, toolkit, method, forcefield, filepath, niterations, write_pdb):
+    """Run specified molecule index from FreeSolv database
+    """
+    import pandas as pd
+    df = pd.read_csv('freesolv.csv', sep=';', header=2)
+    name = df.iloc[index+1].to_dict()['# compound id (and file prefix)'].strip()
+    smiles = df.iloc[index+1].to_dict()[' SMILES'].strip()
+    import os
+    run_all(smiles, toolkit, method, forcefield, os.path.join(filepath, name), niterations, write_pdb)
+
+
 cli.add_command(run)
 cli.add_command(analyze)
+cli.add_command(freesolv)
 
 if __name__ == '__main__':
     cli()
