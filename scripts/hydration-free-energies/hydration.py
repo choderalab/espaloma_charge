@@ -540,6 +540,7 @@ def analyze_freesolv(filepath, label, outfile):
     df.to_csv(outfile, index=False)
 
     # Write summary statistics
+    # TODO: Bootstrap uncertainties
     import numpy as np
     errors = df[f'hydration free energy {label} error (kcal/mol)']
     rmse = np.sqrt((errors**2).mean())
