@@ -471,10 +471,17 @@ def analyze_single_calculation(filepath):
 def freesolv(index, toolkit, method, forcefield, filepath, niterations, write_pdb):
     """Run specified molecule index from FreeSolv database
     """
-    import pandas as pd
-    df = pd.read_csv('freesolv.csv', sep=';', header=2)
-    name = df.iloc[index+1].to_dict()['# compound id (and file prefix)'].strip()
-    smiles = df.iloc[index+1].to_dict()[' SMILES'].strip()
+    # Load FreeSolv database
+    # TODO: Retrieve automatically if needed
+    import json
+    with open('freesolv.json', 'rt') as infile:
+        freesolv = json.load(infile)
+
+    # Extract info
+    name = list(freesolv.keys())[index - 1]
+    smiles = freesolv[name]['smiles']
+
+    # Run free energy calculation
     import os
     run_all(smiles, toolkit, method, forcefield, os.path.join(filepath, name), niterations, write_pdb)
 
@@ -491,6 +498,8 @@ def freesolv(index, toolkit, method, forcefield, filepath, niterations, write_pd
 def analyze_freesolv(filepath, label, outfile):
     """Analyze 
     """
+    # Load FreeSolv database
+    # TODO: Retrieve automatically if needed
     import json
     with open('freesolv.json', 'rt') as infile:
         freesolv = json.load(infile)
@@ -572,56 +581,6 @@ def analyze_freesolv(filepath, label, outfile):
     figure_filename = label + '.pdf'
     plt.savefig(figure_filename)
     print(f'Figure written to {figure_filename}')
-
-@click.command()
-@click.option('--filepath', 
-              required=True,
-              help='Base file path containing FreeSolv calculations')
-@click.option('--label', 
-              default=None,
-              help='Label for calculations')
-@click.option('--outfile', 
-              required=True,
-              help='Output filename for CSV')
-def analyze_freesolv_pandas(filepath, label, outfile):
-    import pandas as pd
-    df = pd.read_csv('freesolv.csv', sep=';', header=0, comment='#')
-    ncompounds = len(df)
-
-    DeltaG_calc_series = list()
-    dDeltaG_calc_series = list()
-    for index in range(ncompounds):
-        entry = df.iloc[index].to_dict()
-
-        name = entry['compound id'].strip()
-        smiles = entry['SMILES'].strip()        
-        DeltaG_exp = entry['experimental value (kcal/mol)']
-        dDeltaG_exp = entry['experimental uncertainty (kcal/mol)']
-        DeltaG_mobley = entry['Mobley group calculated value (GAFF) (kcal/mol)']
-        dDeltaG_mobley = entry['calculated uncertainty (kcal/mol)']        
-
-        import os
-        import numpy as np
-        try:
-            DeltaG_calc, dDeltaG_calc = analyze_single_calculation(os.path.join(filepath, name)) # in kcal/mol
-            DeltaG_error = DeltaG_calc - DeltaG_exp
-            dDeltaG_error = np.sqrt(dDeltaG_calc**2 + dDeltaG_exp**2)
-            print(f'{name:20s} {smiles:85s} : exp {DeltaG_exp:8.2f} +- {dDeltaG_exp:5.2f} kcal/mol | Mobley {DeltaG_mobley:8.2f} +- {dDeltaG_mobley:5.2f} kcal/mol | calc {DeltaG_calc:8.2f} +- {dDeltaG_calc:5.2f} kcal/mol | calc-exp  {DeltaG_error:8.2f} +- {dDeltaG_error:5.2f} kcal/mol')
-
-            DeltaG_calc_series.append(DeltaG_calc)
-            dDeltaG_calc_series.append(dDeltaG_calc)
-        except FileNotFoundError as e:
-            DeltaG_calc_series.append(None)
-            dDeltaG_calc_series.append(None)
-
-    # Update dataframe
-    if label is None:
-        label = ""
-    df.insert(7, f"openmmtools calculated value {label} (kcal/mol)", DeltaG_calc_series)
-    df.insert(8, f"openmmtools calculated value {label} calculated uncertainty (kcal/mol)", dDeltaG_calc_series)
-    print(df)
-    df.to_csv(outfile, index=False)
-
 
 cli.add_command(run)
 cli.add_command(analyze)

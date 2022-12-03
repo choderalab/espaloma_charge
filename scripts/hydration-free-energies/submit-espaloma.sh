@@ -1,6 +1,6 @@
 #!/bin/bash
 #BSUB -P "espaloma"
-#BSUB -J "hydration-openeye[1-642]"
+#BSUB -J "hydration-espaloma[1-642]"
 #BSUB -n 1
 #BSUB -R rusage[mem=8]
 #BSUB -R span[hosts=1]
@@ -36,4 +36,4 @@ nvidia-smi -L
 nvidia-smi --query-gpu=name --format=csv
 
 # Run
-python hydration.py freesolv --index $LSB_JOBINDEX --toolkit OpenEye --method am1bccelf10 --forcefield "gaff-2.11" --filepath openeye --niterations 1000
+python hydration.py freesolv --index $LSB_JOBINDEX --toolkit EspalomaCharge --method espaloma-am1bcc --forcefield "gaff-2.11" --filepath espaloma --niterations 1000
