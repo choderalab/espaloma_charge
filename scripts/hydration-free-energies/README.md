@@ -10,15 +10,10 @@ Install the prerequisites with `conda` or `mamba`:
 $ mamba env create -f environment.yml -n hydration
 $ mamba activate hydration
 ```
-Download the [FreeSolv database](https://raw.githubusercontent.com/MobleyLab/FreeSolv/master/database.txt):
-```bash
-$ wget https://raw.githubusercontent.com/MobleyLab/FreeSolv/master/database.txt -O freesolv.csv
-$ wget https://raw.githubusercontent.com/MobleyLab/FreeSolv/master/database.json -O freesolv.json
-```
 
 ## Computing hydration free energies
 
-### Running the simulation
+### Running a simulation for an arbitrary molecule
 
 To set up and run a simulation, use
 ```bash
@@ -31,19 +26,19 @@ $ python hydration.py run --smiles <smiles> --toolkit <toolkit> --method <method
 * The `--forcefield <forcefield>` argument can specify any force fields supported by the [`SystemGenerator`](https://github.com/openmm/openmmforcefields#automating-force-field-management-with-systemgenerator) (e.g. `gaff-2.11`).
 * The `--filepath <filepath>` argument specifies the directory in which simulation files should be written
 
-A typical calculation will take ~1 hour.
+A typical calculation will take < 12 hours.
 
 To run the hydration free energy calculation using the `EspalomaCharge` toolkit and `espaloma-am1bcc` charge method for caffeiene:
 ```bash
-$ python hydration.py run --smiles "CN1C=NC2=C1C(=O)N(C(=O)N2C)C" --toolkit EspalomaCharge --method espaloma-am1bcc --filepath caffeine-espaloma
+$ python hydration.py run --smiles "CN1C=NC2=C1C(=O)N(C(=O)N2C)C" --toolkit EspalomaCharge --method espaloma-am1bcc --filepath espaloma
 ```
 To run the hydration free energy calculation using the `AmberTools` toolkit and `am1bcc` charge method:
 ```bash
-$ python hydration.py run --smiles "CN1C=NC2=C1C(=O)N(C(=O)N2C)C" --toolkit AmberTools --method am1bcc --filepath caffeine-ambertools
+$ python hydration.py run --smiles "CN1C=NC2=C1C(=O)N(C(=O)N2C)C" --toolkit AmberTools --method am1bcc --filepath ambertools
 ```
 To run the hydration free energy calculation using the `OpenEye` toolkit and `am1bccelf10` charge method:
 ```bash
-$ python hydration.py run --smiles "CN1C=NC2=C1C(=O)N(C(=O)N2C)C" --toolkit OpenEye --method am1bccelf10 --filepath caffeine-openeye
+$ python hydration.py run --smiles "CN1C=NC2=C1C(=O)N(C(=O)N2C)C" --toolkit OpenEye --method am1bccelf10 --filepath openeye
 ```
 
 **NOTE:** Currently, simulations are not able to be resumed, and existing filepaths must be deleted before being re-run.
@@ -51,15 +46,21 @@ $ python hydration.py run --smiles "CN1C=NC2=C1C(=O)N(C(=O)N2C)C" --toolkit Open
 For debugging purposes, it is useful to reduce the number of iterations: `--niterations 100` should take only ~10 min.
 Don't go below 25, which is the current interval for online analysis---the YAML file will not be written if you go below 25 iterations.
 
-### Analyzing the simulation
+### Running FreeSolv calculations
 
-To analyze the simulation, use 
+To run the FreeSolv database, first download the [FreeSolv database](https://github.com/MobleyLab/FreeSolv):
 ```bash
-$ python hydration.py analyze --filepath <filepath>
+$ wget https://raw.githubusercontent.com/MobleyLab/FreeSolv/master/database.json -O freesolv.json
 ```
-The `analyze` method will need to be modified to write data to a file or in an easily collectable manner.
+To run molecule `$LSB_JOBINDEX`, you can use the `freesolv` command:
+```bash
+$ python hydration.py freesolv --index $LSB_JOBINDEX --toolkit EspalomaCharge --method espaloma-am1bcc --forcefield "gaff-2.11" --filepath espaloma --niterations 1000
+```
+A set of scripts `submit-{espaloma,ambertools,openeye}.sh` have been provided as an example of how to run the whole FreeSolv set via the LSF batch queue system.
 
-## Manifest
-* `freesolv.csv` - FreeSolv dataset ([retrieved 2022-11-29](https://raw.githubusercontent.com/MobleyLab/FreeSolv/master/database.txt) and renamed)
-* `hydration.py` - compute hydration free energy for the specified compound
+### Analyzing FreeSolv calculations
 
+To analyze all simulations and generate a `.csv` file of all compounds and a plot PDF file:
+```bash
+$ python hydration.py analyze-freesolv --filepath espaloma --outfile espaloma.csv --label espaloma
+```

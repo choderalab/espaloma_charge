@@ -547,6 +547,7 @@ def analyze_freesolv(filepath, label, outfile):
     df = pd.DataFrame.from_records(records, columns=records[0].keys())
     print(df)
     df.to_csv(outfile, index=False)
+    n_compounds = len(df)
 
     # Compute summary statistics
     import numpy as np
@@ -581,7 +582,7 @@ def analyze_freesolv(filepath, label, outfile):
     statistics = [mean_signed_error, root_mean_squared_error, mean_unsigned_error, kendall_tau, pearson_r]
     # Compute statistics
     computed_statistics = dict()
-    all_indices = np.array(range(len(df)))
+    all_indices = np.array(range(n_compounds))
     for statistic in statistics:
         name = statistic.__doc__
         computed_statistics[name] = dict()
@@ -614,7 +615,7 @@ def analyze_freesolv(filepath, label, outfile):
     title = f"{label}"
     plt.title(title)
 
-    statistics_text = ""
+    statistics_text = f"N = {n_compounds} compounds\n"
     for name, value in computed_statistics.items():
         statistics_text += f"{name} {value['mle']:.2f} [{value['95% CI low']:.2f},{value['95% CI high']:.2f}] kcal/mol\n"
     plt.legend([statistics_text], fontsize=7)
