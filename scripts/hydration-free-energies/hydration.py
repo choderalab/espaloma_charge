@@ -490,7 +490,7 @@ def freesolv(index, toolkit, method, forcefield, filepath, niterations, write_pd
               required=True,
               help='Base file path containing FreeSolv calculations')
 @click.option('--label', 
-              default=None,
+              required=True,
               help='Label for calculations')
 @click.option('--outfile', 
               required=True,
@@ -537,25 +537,61 @@ def analyze_freesolv(filepath, label, outfile):
 
             record[f'hydration free energy {label} error (kcal/mol)'] = DeltaG_error
             record[f'hydration free energy uncertainty {label} error (kcal/mol)'] = dDeltaG_error
+
+            records.append(record)
         except FileNotFoundError as e:
             pass
 
-        records.append(record)
-
     # Write details
     import pandas as pd
-    df = pd.DataFrame.from_records(records, columns=record.keys())
+    df = pd.DataFrame.from_records(records, columns=records[0].keys())
     print(df)
     df.to_csv(outfile, index=False)
 
-    # Write summary statistics
-    # TODO: Bootstrap uncertainties
+    # Compute summary statistics
     import numpy as np
-    errors = df[f'hydration free energy {label} error (kcal/mol)']
-    rmse = np.sqrt((errors**2).mean())
-    mue = np.abs(errors).mean()
-    print(f'RMSE : {rmse:8.3f} kcal/mol')
-    print(f'MUE  : {mue:8.3f} kcal/mol')
+    import scipy
+    def extract_bootstrap_sample(indices):
+        "Retrieve calculated, experimental, and error data (in kcal/mol) given compound indices into dataframe"
+        calculated = np.array(df.iloc[indices][f'calculated hydration free energy {label} (kcal/mol)'])
+        experimental = np.array(df.iloc[indices][f'experimental hydration free energy (kcal/mol)'])
+        errors = calculated - experimental
+        return calculated, experimental, errors
+    # Define statistics functions to use, with docstrings used as titles
+    def mean_signed_error(indices):
+        "Mean signed error"
+        calculated, experimental, errors = extract_bootstrap_sample(indices)
+        return np.mean(errors)
+    def root_mean_squared_error(indices):
+        "Root mean squared error"
+        calculated, experimental, errors = extract_bootstrap_sample(indices)
+        return np.sqrt((errors**2).mean())
+    def mean_unsigned_error(indices):
+        "Mean unsigned error"
+        calculated, experimental, errors = extract_bootstrap_sample(indices)
+        return np.abs(errors).mean()
+    def kendall_tau(indices):
+        "Kendall tau"
+        calculated, experimental, errors = extract_bootstrap_sample(indices)
+        return scipy.stats.kendalltau(calculated, experimental)[0]
+    def pearson_r(indices):
+        "Pearson R"
+        calculated, experimental, errors = extract_bootstrap_sample(indices)
+        return scipy.stats.pearsonr(calculated, experimental)[0]        
+    statistics = [mean_signed_error, root_mean_squared_error, mean_unsigned_error, kendall_tau, pearson_r]
+    # Compute statistics
+    computed_statistics = dict()
+    all_indices = np.array(range(len(df)))
+    for statistic in statistics:
+        name = statistic.__doc__
+        computed_statistics[name] = dict()
+        computed_statistics[name]['mle'] = statistic(all_indices)
+        bootstrap_result = scipy.stats.bootstrap((all_indices,), statistic, confidence_level=0.95, vectorized=False, method='percentile')
+        computed_statistics[name]['95% CI low'] = bootstrap_result.confidence_interval.low
+        computed_statistics[name]['95% CI high'] = bootstrap_result.confidence_interval.high
+
+    for name, value in computed_statistics.items():
+        print(f"{name:25} {value['mle']:8.4f} [{value['95% CI low']:8.4f},{value['95% CI high']:8.4f}]")
 
     # Generate plot
     import matplotlib as mpl
@@ -574,7 +610,15 @@ def analyze_freesolv(filepath, label, outfile):
     xmax = max(df[f'experimental hydration free energy (kcal/mol)'].max(), df[f'calculated hydration free energy {label} (kcal/mol)'].max()) + 0.5
     plt.plot([xmin, xmax], [xmin, xmax], 'k-', linewidth=1)
     plt.axis([xmin, xmax, xmin, xmax])
-    plt.title(f'{label}\nRMSE: {rmse:.2f} kcal/mol\nMUE: {mue:.2f} kcal/mol')
+
+    title = f"{label}"
+    plt.title(title)
+
+    statistics_text = ""
+    for name, value in computed_statistics.items():
+        statistics_text += f"{name} {value['mle']:.2f} [{value['95% CI low']:.2f},{value['95% CI high']:.2f}] kcal/mol\n"
+    plt.legend([statistics_text], fontsize=7)
+
     plt.xlabel('experimental hydration free energy (kcal/mol)')
     plt.ylabel('calculated hydration free energy (kcal/mol)')
     plt.tight_layout()

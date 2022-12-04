@@ -13,6 +13,7 @@ dependencies:
   - pyyaml
   # for analysis
   - pandas
+  - scipy
   - seaborn
   - matplotlib
   # install espaloma_charge (until it appears on conda-forge)
