@@ -15,6 +15,8 @@ from espaloma_charge import charge
 class EspalomaChargeToolkitWrapper(base_wrapper.ToolkitWrapper):
     """
     .. warning :: This API is experimental and subject to change.
+
+    The ``model_url`` attribute can be used to modify the URL or filepath to use for charging (default: ``None``).
     """
 
     _toolkit_name = "Espaloma Charge Toolkit"
@@ -27,6 +29,9 @@ class EspalomaChargeToolkitWrapper(base_wrapper.ToolkitWrapper):
 
         self._toolkit_file_read_formats = []
         self._toolkit_file_write_formats = []
+
+        # Allow the model URL to be configurable after initialization.
+        self.model_url = None
 
         # Store an instance of an RDKitToolkitWrapper for file I/O
         self._rdkit_toolkit_wrapper = RDKitToolkitWrapper()
@@ -114,7 +119,7 @@ class EspalomaChargeToolkitWrapper(base_wrapper.ToolkitWrapper):
 
         if partial_charge_method == "espaloma-am1bcc":
             rdmol = self._rdkit_toolkit_wrapper.to_rdkit(mol_copy)
-            partial_charges = charge(rdmol)
+            partial_charges = charge(rdmol, model_url=self.model_url)
 
 
         molecule.partial_charges = unit.Quantity(
