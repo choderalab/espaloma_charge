@@ -57,10 +57,11 @@ def freesolv(model_url):
         print(f'Assign {len(molecules)} charges with {toolkit} took {elapsed_time:.3f} s ({elapsed_time/len(molecules):.3f} s / molecule)')
 
     # Compare charges
+    print(f'Charge model comparison RMSE on {len(molecules)} from FreeSolv')
     import itertools
     for toolkit1, toolkit2 in itertools.combinations(toolkits, 2):
-        compute_rmse(charged_molecules[toolkit1].values(), charged_molecules[toolkit2].values())
-        print(toolkit1, toolkit2, rmse)
+        rmse = compute_rmse(charged_molecules[toolkit1].values(), charged_molecules[toolkit2].values())
+        print(f'{toolkit1:25s} {toolkit2:25s} {rmse:8.3f}')
 
 
 def compute_rmse(molecules1, molecules2):
@@ -85,7 +86,8 @@ def compute_rmse(molecules1, molecules2):
         assert molecule1.name == molecule2.name
         mse += np.sum((molecule1.partial_charges - molecule2.partial_charges)**2)
     mse /= nmolecules
-    rmse = np.sqrt(mse)    
+    rmse = np.sqrt(mse) 
+    return rmse   
 
 def assign_charges(molecules, toolkit, method, model_url=None):
     """Assign charges for all molecules using the specified toolkit and method.
