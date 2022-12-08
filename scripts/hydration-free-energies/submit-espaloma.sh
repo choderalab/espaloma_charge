@@ -8,8 +8,8 @@
 #BSUB -sp 12 # low priority. default is 12, max is 25
 #BSUB -gpu num=1:j_exclusive=yes:mode=shared
 #BSUB -W 24:00
-#BSUB -o out_%J_%I.stdout
-#BSUB -eo out_%J_%I.stderr
+#BSUB -o stdout/out_%J_%I.stdout
+#BSUB -eo stdout/out_%J_%I.stderr
 #BSUB -L /bin/bash
 
 source ~/.bashrc
@@ -36,4 +36,5 @@ nvidia-smi -L
 nvidia-smi --query-gpu=name --format=csv
 
 # Run
-python hydration.py freesolv --index $LSB_JOBINDEX --toolkit EspalomaCharge --method espaloma-am1bcc --forcefield "gaff-2.11" --filepath espaloma --niterations 1000
+MODEL_URL="/data/chodera/wangyq/espaloma_charge/scripts/spice/model.pt"
+python hydration.py freesolv --index $LSB_JOBINDEX --toolkit EspalomaCharge --method espaloma-am1bcc --forcefield "gaff-2.11" --filepath espaloma --niterations 1000 --model-url $MODEL_URL

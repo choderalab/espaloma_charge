@@ -8,8 +8,8 @@
 #BSUB -sp 12 # low priority. default is 12, max is 25
 #BSUB -gpu num=1:j_exclusive=yes:mode=shared
 #BSUB -W 24:00
-#BSUB -o out_%J_%I.stdout
-#BSUB -eo out_%J_%I.stderr
+#BSUB -o stdout/out_%J_%I.stdout
+#BSUB -eo stdout/out_%J_%I.stderr
 #BSUB -L /bin/bash
 
 source ~/.bashrc

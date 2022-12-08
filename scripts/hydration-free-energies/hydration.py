@@ -33,6 +33,9 @@ def cli():
 @click.option('--write-pdb', 
               is_flag=True,
               help='Write PDB files of initial models')   
+@click.option('--model-url', 
+              default=None,
+              help='If specified, provide model URL or local filepath to espaloma_charge')   
 def run(smiles, toolkit, method, forcefield, filepath, niterations, write_pdb):
     """
     Compute the hydration free energy of a specified molecule
@@ -51,7 +54,7 @@ def run(smiles, toolkit, method, forcefield, filepath, niterations, write_pdb):
     method : str, optional, default='espaloma-am1bcc1'
         The method to use for assigning partial charges.
         Valid options depend on the toolkit:
-            'espaloma' : ['espaloma-am1bcc']
+            'EspalomaCharge' : ['espaloma-am1bcc']
             'AmberTools' : ['am1bcc', 'am1-mulliken', 'gasteiger']
             'OpenEye' : ['am1bcc', 'am1-mulliken', 'gasteiger', 'mmff94', 'am1bccnosymspt', 'am1elf10', 'am1bccelf10']
             'RDKit' : ['mmff94'] 
@@ -66,11 +69,13 @@ def run(smiles, toolkit, method, forcefield, filepath, niterations, write_pdb):
     niterations : int
         The number of iterations to run
     write_pdb : bool
-        If True, write PDB file of intiial models        
+        If True, write PDB file of intiial models 
+    model_url : str, optional, default=None
+        Provide optional model_url or filepath to espaloma_charge.app.charge()       
     """
-    run_all(smiles, toolkit, method, forcefield, filepath, niterations, write_pdb)
+    run_all(smiles, toolkit, method, forcefield, filepath, niterations, write_pdb, model_url)
 
-def run_all(smiles, toolkit, method, forcefield, filepath, niterations, write_pdb):
+def run_all(smiles, toolkit, method, forcefield, filepath, niterations, write_pdb, model_url):
     """
     Compute the hydration free energy of a specified molecule
 
@@ -88,7 +93,7 @@ def run_all(smiles, toolkit, method, forcefield, filepath, niterations, write_pd
     method : str, optional, default='espaloma-am1bcc1'
         The method to use for assigning partial charges.
         Valid options depend on the toolkit:
-            'espaloma' : ['espaloma-am1bcc']
+            'EspalomaCharge' : ['espaloma-am1bcc']
             'AmberTools' : ['am1bcc', 'am1-mulliken', 'gasteiger']
             'OpenEye' : ['am1bcc', 'am1-mulliken', 'gasteiger', 'mmff94', 'am1bccnosymspt', 'am1elf10', 'am1bccelf10']
             'RDKit' : ['mmff94'] 
@@ -104,10 +109,20 @@ def run_all(smiles, toolkit, method, forcefield, filepath, niterations, write_pd
         The number of iterations to run
     write_pdb : bool
         If True, write PDB file of intiial models        
+    model_url : str
+        Provide optional model_url or filepath to espaloma_charge.app.charge()       
     """
+    # Terminate immediately if both phases are complete
+    PHASES = ['vacuum', 'solvent']
+    import os
+    # TODO: Check that simulations have finished by checking YAML files for expected length?
+    if all([ os.path.exists(os.path.join(filepath, phase + '.nc')) for phase in PHASES ]):
+        print('All phases complete already. Exiting.')
+        return
+
     # Create an OpenFF Molecule object
     from openff.toolkit.topology import Molecule
-    molecule = Molecule.from_smiles(smiles)
+    molecule = Molecule.from_smiles(smiles, allow_undefined_stereo=True)
 
     # Check to make sure molecule is neutral
     if molecule.total_charge.magnitude != 0.0:
@@ -119,6 +134,10 @@ def run_all(smiles, toolkit, method, forcefield, filepath, niterations, write_pd
         # TODO: Eliminate this branch if we integrate this wrapper into the OpenFF Toolkit
         from espaloma_charge.openff_wrapper import EspalomaChargeToolkitWrapper
         toolkit_wrapper = EspalomaChargeToolkitWrapper()
+        # TODO: We would still ened to keep this
+        if model_url is not None:
+            print(f'Setting toolkit_wrapper.model_url = {model_url}')
+            toolkit_wrapper.model_url = model_url            
     else:
         import openff.toolkit.utils.toolkits
         toolkit_wrapper = getattr(openff.toolkit.utils.toolkits, toolkit_wrapper_name)()
@@ -182,8 +201,8 @@ def run_all(smiles, toolkit, method, forcefield, filepath, niterations, write_pd
     # Run simulations
     #
 
-    phases = ['vacuum', 'solvent']
-    for phase in phases:
+    PHASES = ['vacuum', 'solvent']
+    for phase in PHASES:
         # Modify the SystemGenerator to work around bug in openmmforcefields <=0.11.2 : https://github.com/openmm/openmmforcefields/issues/252
         match phase:
             case 'solvent':
@@ -207,6 +226,7 @@ def run_all(smiles, toolkit, method, forcefield, filepath, niterations, write_pd
 
 def run_phase(molecule, system, topology, thermodynamic_state, phase, filepath, niterations, write_pdb):
     """Run an alchemical free energy calculation for a single phase.
+    The phase will be skipped if the .nc file already exists.
 
     Parameters
     ----------
@@ -234,6 +254,14 @@ def run_phase(molecule, system, topology, thermodynamic_state, phase, filepath, 
     if phase not in ALLOWED_PHASES:
         raise ValueError(f"phase must be one of {ALLOWED_PHASES}; specified '{phase}'")
 
+    # Skip if phase already exists
+    import os
+    storage_path = os.path.join(filepath, phase + '.nc')
+    # TODO: Try to resume instead of skip
+    if os.path.exists(storage_path):
+        print(f'{storage_path} already exists; skipping this phase.')
+        return
+
     # Activate logging
     import logging
     import os
@@ -256,7 +284,6 @@ def run_phase(molecule, system, topology, thermodynamic_state, phase, filepath, 
     # Simulation parameters
     import os
     import openmm
-    storage_path = os.path.join(filepath, phase + '.nc')
     online_analysis_interval = 25
     checkpoint_interval = 100
     match phase:
@@ -468,7 +495,10 @@ def analyze_single_calculation(filepath):
 @click.option('--write-pdb', 
               is_flag=True,
               help='Write PDB files of initial models')   
-def freesolv(index, toolkit, method, forcefield, filepath, niterations, write_pdb):
+@click.option('--model-url', 
+              default=None,
+              help='If specified, provide model URL or local filepath to espaloma_charge')
+def freesolv(index, toolkit, method, forcefield, filepath, niterations, write_pdb, model_url):
     """Run specified molecule index from FreeSolv database
     """
     # Load FreeSolv database
@@ -483,7 +513,7 @@ def freesolv(index, toolkit, method, forcefield, filepath, niterations, write_pd
 
     # Run free energy calculation
     import os
-    run_all(smiles, toolkit, method, forcefield, os.path.join(filepath, name), niterations, write_pdb)
+    run_all(smiles, toolkit, method, forcefield, os.path.join(filepath, name), niterations, write_pdb, model_url)
 
 @click.command()
 @click.option('--filepath', 
