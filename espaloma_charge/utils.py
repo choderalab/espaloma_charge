@@ -40,7 +40,7 @@ def fp_rdkit(atom):
                     atom.GetTotalDegree(),
                     atom.GetTotalValence(),
                     atom.GetExplicitValence(),
-                    atom.GetFormalCharge(),
+                    # atom.GetFormalCharge(),
                     atom.GetIsAromatic() * 1.0,
                     atom.GetMass(),
                     atom.IsInRingSize(3) * 1.0,
