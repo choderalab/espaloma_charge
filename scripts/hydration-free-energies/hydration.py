@@ -526,7 +526,7 @@ def freesolv(index, toolkit, method, forcefield, filepath, niterations, write_pd
               required=True,
               help='Output filename for CSV')
 def analyze_freesolv(filepath, label, outfile):
-    """Analyze 
+    """Analyze hydration free energy calculations on FreeSolv.
     """
     # Load FreeSolv database
     # TODO: Retrieve automatically if needed
