@@ -120,6 +120,9 @@ class EspalomaChargeToolkitWrapper(base_wrapper.ToolkitWrapper):
         if partial_charge_method == "espaloma-am1bcc":
             rdmol = self._rdkit_toolkit_wrapper.to_rdkit(mol_copy)
             partial_charges = charge(rdmol, model_url=self.model_url)
+            # Due to https://github.com/choderalab/espaloma_charge/issues/7 promote to float64
+            import numpy as np
+            partial_charges = np.array(partial_charges, dtype=np.float64)
 
 
         molecule.partial_charges = unit.Quantity(

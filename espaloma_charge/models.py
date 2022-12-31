@@ -93,7 +93,7 @@ class Sequential(torch.nn.Module):
         self,
         layer,
         config,
-        feature_units=117,
+        feature_units=116,
         input_units=128,
         model_kwargs={},
     ):
