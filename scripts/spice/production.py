@@ -47,7 +47,9 @@ def run(args):
     rmse_vl_best = 9999.9
     rmse_te_best = 9999.9
 
-    if torch.cuda.is_available(): model = model.cuda()
+    if torch.cuda.is_available(): 
+        model = model.cuda()
+
     optimizer = torch.optim.Adam(
         model.parameters(), 
         args.learning_rate,
@@ -64,6 +66,8 @@ def run(args):
                 g.ndata["q_ref"],
                 g.ndata["q"],
             )
+
+            print(loss, flush=True)
 
             loss.backward()
             optimizer.step()
@@ -98,7 +102,7 @@ def run(args):
         if rmse_vl <= rmse_vl_best:
             rmse_vl_best = rmse_vl
             rmse_te_best = rmse_te
-            torch.save(model.cpu(), "model.pt")
+            torch.save(model, "model.pt")
      
     import json
     import pandas as pd
