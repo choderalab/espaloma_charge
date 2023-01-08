@@ -35,4 +35,4 @@ jobs:
         conda list
     - name: Test with pytest
       run: |
-        pytest
+        pytest espaloma_charge
