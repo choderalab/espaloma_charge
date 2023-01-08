@@ -65,7 +65,7 @@ A set of scripts `submit-{espaloma,ambertools,openeye}.sh` have been provided as
 
 To analyze all simulations and generate a `.csv` file of all compounds and a plot PDF file:
 ```bash
-python hydration.py analyze-freesolv --filepath espaloma --outfile espaloma.csv --label espaloma
+python hydration.py analyze-freesolv --filepath espaloma --outfile espaloma-2023-01-05.csv --label "EspalomaCharge 2023-01-05"
 ```
 To compare hydration free energies between models:
 ```bash

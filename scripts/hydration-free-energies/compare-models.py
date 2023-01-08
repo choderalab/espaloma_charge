@@ -148,7 +148,7 @@ def errors(model_url):
     csv_filenames = {
         'OpenEye' : 'openeye.csv',
         'AmberTools' : 'ambertools.csv',
-        'EspalomaCharge' : 'espaloma-2022-12-22.csv',
+        'EspalomaCharge' : 'espaloma-2023-01-05.csv',
     }
     # Assign charges
     toolkit_methods = {
@@ -169,7 +169,7 @@ def errors(model_url):
 
 
     # Filter by error to only retain molecules with hydration free energy error to OpenEye < 2 kcal/mol
-    df = df.assign(error=abs(df['calculated hydration free energy OpenEye (kcal/mol)'] - df['calculated hydration free energy EspalomaCharge (kcal/mol)']))
+    df = df.assign(error=abs(df[f'calculated hydration free energy {toolkits[0]} (kcal/mol)'] - df[f'calculated hydration free energy {toolkits[2]} (kcal/mol)']))
     df = df[df["error"] > 2.0]     
 
     # Sort
