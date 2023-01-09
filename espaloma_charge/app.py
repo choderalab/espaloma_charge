@@ -12,7 +12,7 @@ from torch.utils.model_zoo import load_url
 import numpy as np
 from .utils import from_rdkit_mol
 MODEL_URL = """
-https://github.com/choderalab/espaloma_charge/releases/download/v0.0.0/model.pt
+https://github.com/choderalab/espaloma_charge/releases/download/v0.0.7/model.pt
 """
 
 def charge(
