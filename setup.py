@@ -53,4 +53,7 @@ setup(
     # python_requires=">=3.5",          # Python version restrictions
     # Manual control if final package is compressible or not, set False to prevent the .egg from being made
     # zip_safe=False,
+    entry_points={
+        "console_scripts": ["espaloma_charge=espaloma_charge.cli:espaloma_charge"],
+    }
 )
