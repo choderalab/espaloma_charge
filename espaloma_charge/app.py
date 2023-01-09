@@ -47,5 +47,5 @@ def charge(
     if total_charge is None:
         total_charge = Chem.GetFormalCharge(molecule)
     graph = from_rdkit_mol(molecule)
-    graph = model(graph, total_charge = total_charge)
+    graph = model(graph)
     return graph.ndata["q"].cpu().detach().flatten().numpy()

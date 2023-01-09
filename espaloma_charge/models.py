@@ -55,7 +55,7 @@ class _Sequential(torch.nn.Module):
 
                 self.exes.append("o" + str(idx))
 
-    def forward(self, g, x):
+    def forward(self, g, x, **kwargs):
         for exe in self.exes:
             if exe.startswith("d"):
                 if g is not None:
@@ -118,7 +118,7 @@ class Sequential(torch.nn.Module):
 
         return x
 
-    def forward(self, g, x=None):
+    def forward(self, g, x=None, **kwargs):
         """Forward pass.
 
         Parameters
@@ -194,7 +194,7 @@ class ChargeReadout(torch.nn.Module):
         super().__init__()
         self.fc_params = torch.nn.Linear(in_features, 2)
 
-    def forward(self, g):
+    def forward(self, g, **kwargs):
         h = self.fc_params(g.ndata["h"])
         e, s = h.split(1, -1)
         g.ndata["e"], g.ndata["s"] = e, s
