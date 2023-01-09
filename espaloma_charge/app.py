@@ -14,7 +14,7 @@ from .utils import from_rdkit_mol
 
 # TODO: Do we really want to define this at file level, rather than within some kind of class?
 MODEL_URL = """
-https://github.com/choderalab/espaloma_charge/releases/download/v0.0.0/model.pt
+https://github.com/choderalab/espaloma_charge/releases/download/v0.0.7/model.pt
 """
 
 def charge(
@@ -44,21 +44,13 @@ def charge(
     if model_url is None:
         model_url = MODEL_URL
 
-    # TODO: Can we memoize/cache the model so we don't have to retrieve it every time we invoke charging?
-    with tempfile.TemporaryDirectory() as tempdir:
-        target_path = os.path.join(tempdir, "model.pt")
-        if os.path.exists(model_url):
-            # model_url is a local filepath
-            import shutil
-            shutil.copyfile(model_url, target_path)
-        else:
-            # See if model_url is a URL
-            request.urlretrieve(model_url, target_path)
-        model = torch.load(target_path, map_location="cpu")
+    if not os.path.exists(".model.pt"):
+        request.urlretrieve(model_url, ".model.pt")
+
+    model = torch.load(".model.pt")
+
     if total_charge is None:
         total_charge = Chem.GetFormalCharge(molecule)
     graph = from_rdkit_mol(molecule)
-    n_nodes = graph.number_of_nodes()
-    graph.ndata["q_ref"] = torch.ones(n_nodes, 1) * total_charge / n_nodes
     graph = model(graph)
     return graph.ndata["q"].cpu().detach().flatten().numpy()
