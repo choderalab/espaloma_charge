@@ -2,11 +2,6 @@ import os
 import tempfile
 from urllib import request
 from rdkit import Chem
-import dgl
-try:
-    dgl.use_libxsmm(False)
-except:
-    pass
 import torch
 from torch.utils.model_zoo import load_url
 import numpy as np

@@ -5,9 +5,18 @@ Standalone charge assignment from Espaloma framework. https://doi.org/10.1039/D2
 
 ## Installation
 
+### Pip
+
 ```bash
 $ pip install espaloma_charge
 ```
+
+### Conda-Forge
+
+```bash
+$ conda install -c conda-forge espaloma_charge
+```
+
 
 ## Examples
 **Option0: Assign charges to rdkit molecule.**
