@@ -14,9 +14,8 @@ $ pip install espaloma_charge
 ### Conda-Forge
 
 ```bash
-$ conda install -c conda-forge espaloma_charge
+$ conda install -c conda-forge -c dglteam dgl espaloma_charge
 ```
-
 
 ## Examples
 **Option0: Assign charges to rdkit molecule.**
