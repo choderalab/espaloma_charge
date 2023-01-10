@@ -5,8 +5,16 @@ Standalone charge assignment from Espaloma framework. https://doi.org/10.1039/D2
 
 ## Installation
 
+### Pip
+
 ```bash
 $ pip install espaloma_charge
+```
+
+### Conda-Forge
+
+```bash
+$ conda install -c conda-forge -c dglteam dgl espaloma_charge
 ```
 
 ## Examples
