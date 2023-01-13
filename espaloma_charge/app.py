@@ -53,5 +53,9 @@ def charge(
         total_charge = Chem.GetFormalCharge(molecule)
     graph = from_rdkit_mol(molecule)
 
+    if torch.cuda.is_available():
+        graph = graph.to("cuda:0")
+        model = model.cuda()
+
     graph = model(graph)
     return graph.ndata["q"].cpu().detach().flatten().numpy()
