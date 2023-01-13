@@ -7,6 +7,12 @@ from torch.utils.model_zoo import load_url
 import numpy as np
 from .utils import from_rdkit_mol
 
+try:
+    import dgl
+    dgl.use_libxsmm(False)
+except:
+    pass
+
 # TODO: Do we really want to define this at file level, rather than within some kind of class?
 MODEL_URL = """
 https://github.com/choderalab/espaloma_charge/releases/download/v0.0.7/model.pt
