@@ -30,4 +30,3 @@ def test_readout_and_equilibrium():
     readout = ChargeReadout(3)
     graph = readout(graph)
     graph = ChargeEquilibrium()(graph)
-    print(graph.ndata)
