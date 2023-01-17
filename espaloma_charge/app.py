@@ -25,7 +25,6 @@ MODEL_PATH = ".espaloma_charge_model.pt"
 
 def charge(
         molecule,
-        total_charge: float = None,
         model_url: str = None,
     ) -> np.ndarray:
     """Assign machine-learned AM1-BCC partial charges to a molecule.
@@ -47,10 +46,11 @@ def charge(
     np.ndarray : (n_atoms, ) array of partial charges.
 
     """
+    # switch to `charge_multiple` if a sequence is fed
     if isinstance(molecule, Sequence):
         return charge_multiple(molecule)
 
-
+    # load model
     if model_url is None:
         model_url = MODEL_URL
 
@@ -59,8 +59,7 @@ def charge(
 
     model = torch.load(MODEL_PATH)
 
-    if total_charge is None:
-        total_charge = Chem.GetFormalCharge(molecule)
+    # deploy the model to get charge
     graph = from_rdkit_mol(molecule)
 
     if torch.cuda.is_available():
