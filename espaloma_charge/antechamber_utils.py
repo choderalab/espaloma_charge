@@ -18,7 +18,7 @@ def charge_mol2(in_path: str, out_path: Optional[str]) -> None:
     assert "mol2" in in_path, "Only handles mol2."
     if len(out_path) == 0:
         out_path = in_path.replace(".mol2", ".crg")
-    molecule = Chem.MolFromMol2File(in_path)
+    molecule = Chem.MolFromMol2File(in_path, removeHs=False)
     charges = charge(molecule)
     out = " " + np.array2string(
         charges, precision=6, max_line_width=81, floatmode="fixed"
