@@ -71,7 +71,7 @@ def from_rdkit_mol(mol, use_fp=True):
     g.ndata["type"] = torch.Tensor(
         [[atom.GetAtomicNum()] for atom in mol.GetAtoms()]
     )
-    g.ndata["formal_charge"] = torch.Tensor(
+    g.ndata["q_hat"] = torch.Tensor(
         [[atom.GetFormalCharge()] for atom in mol.GetAtoms()]
     )
     h_v = torch.zeros(g.ndata["type"].shape[0], 100, dtype=torch.float32)
