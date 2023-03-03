@@ -2,6 +2,7 @@ import torch
 
 from dgllife.utils.featurizers import (
     BaseAtomFeaturizer,
+    ConcatFeaturizer,
     atom_type_one_hot,
     atom_degree_one_hot,
     atom_hybridization_one_hot,
@@ -11,7 +12,7 @@ from dgllife.utils.featurizers import (
 
 class AtomFeaturizer(BaseAtomFeaturizer):
     def __init__(self, atom_data_field='h'):
-        super(CanonicalAtomFeaturizer, self).__init__(
+        super().__init__(
             featurizer_funcs={atom_data_field: ConcatFeaturizer(
                 [atom_type_one_hot,
                  atom_degree_one_hot,
@@ -30,10 +31,10 @@ class AtomFeaturizer(BaseAtomFeaturizer):
 def from_rdkit_mol(mol):
     import dgl
     from rdkit import Chem
-    from dgllife.utils import AtomFeaturizer, mol_to_bigraph
+    from dgllife.utils import mol_to_bigraph
 
     # g = CanonicalAtomFeaturizer("h0")(mol)
-    g = mol_to_bigraph(mol, add_self_loop=True, node_featurizer=CanonicalAtomFeaturizer("h0"))
+    g = mol_to_bigraph(mol, add_self_loop=True, node_featurizer=AtomFeaturizer("h0"))
 
     # # initialize graph
     # g = dgl.DGLGraph()
