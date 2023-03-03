@@ -61,10 +61,11 @@ def fp_rdkit(atom):
 def from_rdkit_mol(mol):
     import dgl
     from rdkit import Chem
-    from dgllife.utils import CanonicalAtomFeaturizer
+    from dgllife.utils import CanonicalAtomFeaturizer, mol_to_bigraph
 
-    g = CanonicalAtomFeaturizer("h0")(mol)
-    g["h0"] = torch.concat([g["h0"][:61], g["h0"][62:]], -1)
+    # g = CanonicalAtomFeaturizer("h0")(mol)
+    g = mol_to_bigraph(mol, add_self_loop=True, node_featurizer=CanonicalAtomFeaturizer("h0"))
+    g.ndata["h0"] = torch.concat([g.ndata["h0"][..., :61], g.ndata["h0"][..., 62:]], -1)
 
 
     # # initialize graph
