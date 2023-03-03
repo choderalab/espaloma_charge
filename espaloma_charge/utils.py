@@ -1,72 +1,39 @@
 import torch
 
-def fp_rdkit(atom):
-    from rdkit import Chem
+from dgllife.utils.featurizers import (
+    BaseAtomFeaturizer,
+    atom_type_one_hot,
+    atom_degree_one_hot,
+    atom_hybridization_one_hot,
+    atom_is_aromatic,
+    atom_total_num_H_one_hot
+)
 
-    HYBRIDIZATION_RDKIT = {
-        Chem.rdchem.HybridizationType.SP: torch.tensor(
-            [1, 0, 0, 0, 0],
-            dtype=torch.get_default_dtype(),
-        ),
-        Chem.rdchem.HybridizationType.SP2: torch.tensor(
-            [0, 1, 0, 0, 0],
-            dtype=torch.get_default_dtype(),
-        ),
-        Chem.rdchem.HybridizationType.SP3: torch.tensor(
-            [0, 0, 1, 0, 0],
-            dtype=torch.get_default_dtype(),
-        ),
-        Chem.rdchem.HybridizationType.SP3D: torch.tensor(
-            [0, 0, 0, 1, 0],
-            dtype=torch.get_default_dtype(),
-        ),
-        Chem.rdchem.HybridizationType.SP3D2: torch.tensor(
-            [0, 0, 0, 0, 1],
-            dtype=torch.get_default_dtype(),
-        ),
-        Chem.rdchem.HybridizationType.S: torch.tensor(
-            [0, 0, 0, 0, 0],
-            dtype=torch.get_default_dtype(),
-        ),
-        Chem.rdchem.HybridizationType.UNSPECIFIED: torch.tensor(
-            [0, 0, 0, 0, 0],
-            dtype=torch.get_default_dtype(),
-        ),
-    }
-    return torch.cat(
-        [
-            torch.tensor(
-                [
-                    atom.GetTotalDegree(),
-                    atom.GetTotalValence(),
-                    atom.GetExplicitValence(),
-                    # atom.GetFormalCharge(),
-                    atom.GetIsAromatic() * 1.0,
-                    atom.GetMass(),
-                    atom.IsInRingSize(3) * 1.0,
-                    atom.IsInRingSize(4) * 1.0,
-                    atom.IsInRingSize(5) * 1.0,
-                    atom.IsInRingSize(6) * 1.0,
-                    atom.IsInRingSize(7) * 1.0,
-                    atom.IsInRingSize(8) * 1.0,
-                ],
-                dtype=torch.get_default_dtype(),
-            ),
-            HYBRIDIZATION_RDKIT[atom.GetHybridization()],
-        ],
-        dim=0,
-    )
+class AtomFeaturizer(BaseAtomFeaturizer):
+    def __init__(self, atom_data_field='h'):
+        super(CanonicalAtomFeaturizer, self).__init__(
+            featurizer_funcs={atom_data_field: ConcatFeaturizer(
+                [atom_type_one_hot,
+                 atom_degree_one_hot,
+                 # atom_implicit_valence_one_hot,
+                 # atom_formal_charge,
+                 # atom_num_radical_electrons,
+                 atom_hybridization_one_hot,
+                 atom_is_aromatic,
+                 atom_total_num_H_one_hot]
+            )})
+
+
+
 
 
 def from_rdkit_mol(mol):
     import dgl
     from rdkit import Chem
-    from dgllife.utils import CanonicalAtomFeaturizer, mol_to_bigraph
+    from dgllife.utils import AtomFeaturizer, mol_to_bigraph
 
     # g = CanonicalAtomFeaturizer("h0")(mol)
     g = mol_to_bigraph(mol, add_self_loop=True, node_featurizer=CanonicalAtomFeaturizer("h0"))
-    g.ndata["h0"] = torch.concat([g.ndata["h0"][..., :61], g.ndata["h0"][..., 62:]], -1)
-
 
     # # initialize graph
     # g = dgl.DGLGraph()
