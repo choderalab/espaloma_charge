@@ -14,14 +14,16 @@ class AtomFeaturizer(BaseAtomFeaturizer):
     def __init__(self, atom_data_field='h'):
         super().__init__(
             featurizer_funcs={atom_data_field: ConcatFeaturizer(
-                [atom_type_one_hot,
+                [
+                 atom_type_one_hot,
                  atom_degree_one_hot,
                  # atom_implicit_valence_one_hot,
                  # atom_formal_charge,
                  # atom_num_radical_electrons,
                  atom_hybridization_one_hot,
                  atom_is_aromatic,
-                 atom_total_num_H_one_hot]
+                 atom_total_num_H_one_hot,
+                 ]
             )})
 
 
