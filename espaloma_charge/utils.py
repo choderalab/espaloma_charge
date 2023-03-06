@@ -48,7 +48,10 @@ def from_rdkit_mol(mol):
     from dgllife.utils import mol_to_bigraph
 
     # g = CanonicalAtomFeaturizer("h0")(mol)
-    g = mol_to_bigraph(mol, add_self_loop=True, node_featurizer=AtomFeaturizer("h0"))
+    g = mol_to_bigraph(
+        mol, add_self_loop=False, node_featurizer=AtomFeaturizer("h0"),
+        canonical_atom_order=False,
+    )
 
     # # initialize graph
     # g = dgl.DGLGraph()
