@@ -10,6 +10,17 @@ from dgllife.utils.featurizers import (
     atom_total_num_H_one_hot
 )
 
+
+def atom_ring_size_one_hot(atom):
+    return [                    
+            atom.IsInRingSize(3),
+            atom.IsInRingSize(4),
+            atom.IsInRingSize(5),
+            atom.IsInRingSize(6),
+            atom.IsInRingSize(7),
+            atom.IsInRingSize(8),
+    ]
+
 class AtomFeaturizer(BaseAtomFeaturizer):
     def __init__(self, atom_data_field='h'):
         super().__init__(
@@ -23,6 +34,7 @@ class AtomFeaturizer(BaseAtomFeaturizer):
                  atom_hybridization_one_hot,
                  atom_is_aromatic,
                  atom_total_num_H_one_hot,
+                 atom_ring_size_one_hot,
                  ]
             )})
 
