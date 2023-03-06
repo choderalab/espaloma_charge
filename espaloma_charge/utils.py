@@ -1,33 +1,57 @@
 import torch
 
-from dgllife.utils.featurizers import (
-    BaseAtomFeaturizer,
-    ConcatFeaturizer,
-    atom_type_one_hot,
-    atom_degree_one_hot,
-    atom_hybridization_one_hot,
-    atom_is_aromatic,
-    atom_total_num_H_one_hot
-)
+def fp_rdkit(atom):
+    from rdkit import Chem
 
-class AtomFeaturizer(BaseAtomFeaturizer):
-    def __init__(self, atom_data_field='h'):
-        super().__init__(
-            featurizer_funcs={atom_data_field: ConcatFeaturizer(
+    HYBRIDIZATION_RDKIT = {
+        Chem.rdchem.HybridizationType.SP: torch.tensor(
+            [1, 0, 0, 0, 0],
+            dtype=torch.get_default_dtype(),
+        ),
+        Chem.rdchem.HybridizationType.SP2: torch.tensor(
+            [0, 1, 0, 0, 0],
+            dtype=torch.get_default_dtype(),
+        ),
+        Chem.rdchem.HybridizationType.SP3: torch.tensor(
+            [0, 0, 1, 0, 0],
+            dtype=torch.get_default_dtype(),
+        ),
+        Chem.rdchem.HybridizationType.SP3D: torch.tensor(
+            [0, 0, 0, 1, 0],
+            dtype=torch.get_default_dtype(),
+        ),
+        Chem.rdchem.HybridizationType.SP3D2: torch.tensor(
+            [0, 0, 0, 0, 1],
+            dtype=torch.get_default_dtype(),
+        ),
+        Chem.rdchem.HybridizationType.S: torch.tensor(
+            [0, 0, 0, 0, 0],
+            dtype=torch.get_default_dtype(),
+        ),
+    }
+    return torch.cat(
+        [
+            torch.tensor(
                 [
-                 atom_type_one_hot,
-                 atom_degree_one_hot,
-                 # atom_implicit_valence_one_hot,
-                 # atom_formal_charge,
-                 # atom_num_radical_electrons,
-                 atom_hybridization_one_hot,
-                 atom_is_aromatic,
-                 atom_total_num_H_one_hot,
-                 ]
-            )})
-
-
-
+                    atom.GetTotalDegree(),
+                    # atom.GetTotalValence(),
+                    # atom.GetExplicitValence(),
+                    # atom.GetFormalCharge(),
+                    atom.GetIsAromatic() * 1.0,
+                    atom.GetMass(),
+                    atom.IsInRingSize(3) * 1.0,
+                    atom.IsInRingSize(4) * 1.0,
+                    atom.IsInRingSize(5) * 1.0,
+                    atom.IsInRingSize(6) * 1.0,
+                    atom.IsInRingSize(7) * 1.0,
+                    atom.IsInRingSize(8) * 1.0,
+                ],
+                dtype=torch.get_default_dtype(),
+            ),
+            HYBRIDIZATION_RDKIT[atom.GetHybridization()],
+        ],
+        dim=0,
+    )
 
 
 def from_rdkit_mol(mol):
@@ -35,46 +59,44 @@ def from_rdkit_mol(mol):
     from rdkit import Chem
     from dgllife.utils import mol_to_bigraph
 
-    # g = CanonicalAtomFeaturizer("h0")(mol)
-    g = mol_to_bigraph(mol, add_self_loop=True, node_featurizer=AtomFeaturizer("h0"))
+    # initialize graph
+    g = dgl.DGLGraph()
 
-    # # initialize graph
-    # g = dgl.DGLGraph()
-
-    # # enter nodes
-    # n_atoms = mol.GetNumAtoms()
-    # g.add_nodes(n_atoms)
-    # g.ndata["type"] = torch.Tensor(
-    #     [[atom.GetAtomicNum()] for atom in mol.GetAtoms()]
-    # )
+    # enter nodes
+    n_atoms = mol.GetNumAtoms()
+    g.add_nodes(n_atoms)
+    g.ndata["type"] = torch.Tensor(
+        [[atom.GetAtomicNum()] for atom in mol.GetAtoms()]
+    )
 
     g.ndata["q_ref"] = torch.Tensor(
         [[atom.GetFormalCharge()] for atom in mol.GetAtoms()]
     )
-    # h_v = torch.zeros(g.ndata["type"].shape[0], 100, dtype=torch.float32)
 
-    # h_v[
-    #     torch.arange(g.ndata["type"].shape[0]),
-    #     torch.squeeze(g.ndata["type"]).long(),
-    # ] = 1.0
+    h_v = torch.zeros(g.ndata["type"].shape[0], 100, dtype=torch.float32)
 
-    # h_v_fp = torch.stack([fp_rdkit(atom) for atom in mol.GetAtoms()], axis=0)
+    h_v[
+        torch.arange(g.ndata["type"].shape[0]),
+        torch.squeeze(g.ndata["type"]).long(),
+    ] = 1.0
 
-    # if use_fp == True:
-    #     h_v = torch.cat([h_v, h_v_fp], dim=-1)  # (n_atoms, 117)
+    h_v_fp = torch.stack([fp_rdkit(atom) for atom in mol.GetAtoms()], axis=0)
 
-    # g.ndata["h0"] = h_v
+    if use_fp == True:
+        h_v = torch.cat([h_v, h_v_fp], dim=-1)  # (n_atoms, 117)
 
-    # # enter bonds
-    # bonds = list(mol.GetBonds())
-    # bonds_begin_idxs = [bond.GetBeginAtomIdx() for bond in bonds]
-    # bonds_end_idxs = [bond.GetEndAtomIdx() for bond in bonds]
-    # bonds_types = [bond.GetBondType().real for bond in bonds]
+    g.ndata["h0"] = h_v
 
-    # # NOTE: dgl edges are directional
-    # g.add_edges(bonds_begin_idxs, bonds_end_idxs)
-    # g.add_edges(bonds_end_idxs, bonds_begin_idxs)
+    # enter bonds
+    bonds = list(mol.GetBonds())
+    bonds_begin_idxs = [bond.GetBeginAtomIdx() for bond in bonds]
+    bonds_end_idxs = [bond.GetEndAtomIdx() for bond in bonds]
+    bonds_types = [bond.GetBondType().real for bond in bonds]
 
-    # g.edata["type"] = torch.Tensor(bonds_types)[:, None].repeat(2, 1)
+    # NOTE: dgl edges are directional
+    g.add_edges(bonds_begin_idxs, bonds_end_idxs)
+    g.add_edges(bonds_end_idxs, bonds_begin_idxs)
+
+    g.edata["type"] = torch.Tensor(bonds_types)[:, None].repeat(2, 1)
 
     return g
