@@ -1,6 +1,16 @@
 name: Python Package using Conda
 
-on: [push]
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+  schedule:
+    # At 07:00 UTC on Monday and Thursday.
+    - cron: "0 7 * * 1,4"
+  workflow_dispatch:
 
 defaults:
   run:
@@ -12,7 +22,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest]
+        os: [ubuntu-latest, macos-latest]
         python-version: ["3.8", "3.10"]
 
     steps:
@@ -26,13 +36,13 @@ jobs:
 
     - name: Install dependencies
       run: |
-        #conda env update --file environment.yml --name base
         pip install . --no-deps
 
     - name: Environment Information
       run: |
         conda info
         conda list
+
     - name: Test with pytest
       run: |
-        pytest espaloma_charge
+        pytest -v espaloma_charge
