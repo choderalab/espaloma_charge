@@ -58,4 +58,24 @@ publisher  ="The Royal Society of Chemistry",
 doi  ="10.1039/D2SC02739A",
 url  ="http://dx.doi.org/10.1039/D2SC02739A"}
 
+
+@misc{https://doi.org/10.48550/arxiv.2302.06758,
+  doi = {10.48550/ARXIV.2302.06758},
+  
+  url = {https://arxiv.org/abs/2302.06758},
+  
+  author = {Wang, Yuanqing and Pulido, Iván and Takaba, Kenichiro and Kaminow, Benjamin and Scheen, Jenke and Wang, Lily and Chodera, John D.},
+  
+  keywords = {Machine Learning (cs.LG), Chemical Physics (physics.chem-ph), FOS: Computer and information sciences, FOS: Computer and information sciences, FOS: Physical sciences, FOS: Physical sciences},
+  
+  title = {EspalomaCharge: Machine learning-enabled ultra-fast partial charge assignment},
+  
+  publisher = {arXiv},
+  
+  year = {2023},
+  
+  copyright = {Creative Commons Attribution 4.0 International}
+}
+
+
 ```
