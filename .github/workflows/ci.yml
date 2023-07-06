@@ -23,25 +23,25 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest]
-        python-version: ["3.8", "3.10"]
+        python-version: ["3.9", "3.11"]
 
     steps:
     - uses: actions/checkout@v3
     - name: Install environment
-      uses: mamba-org/provision-with-micromamba@main
+      uses: mamba-org/setup-micromamba@v1
       with:
         environment-file: environment.yml
-        extra-specs: |
+        create-args: >-
           python=${{ matrix.python-version }}
 
     - name: Install dependencies
       run: |
-        pip install . --no-deps
+        python -m pip install . --no-deps
 
     - name: Environment Information
       run: |
-        conda info
-        conda list
+        micromamba info
+        micromamba list
 
     - name: Test with pytest
       run: |

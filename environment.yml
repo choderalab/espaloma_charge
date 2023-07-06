@@ -6,7 +6,7 @@ channels:
   - dglteam
 dependencies:
   - python
-  - openff-toolkit
+  - openff-toolkit >=0.14.*,<0.15
   - pytest
   - pytorch
   - dgl
