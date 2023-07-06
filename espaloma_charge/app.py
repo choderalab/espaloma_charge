@@ -27,6 +27,7 @@ def charge(
         molecule,
         total_charge: float = None,
         model_url: str = None,
+        return_es: bool = False
     ) -> np.ndarray:
     """Assign machine-learned AM1-BCC partial charges to a molecule.
 
@@ -41,10 +42,14 @@ def charge(
     model_url : str, optional, default=None
         URL or filepath to retrieve the model from.
         If None, the default MODEL_URL (defined at file level) is used
+    return_es : bool, optional, default=False
+        If True, return the per-atom electronegativity and hardness as well.
 
     Returns
     -------
     np.ndarray : (n_atoms, ) array of partial charges.
+    np.ndarray : (n_atoms, ) array of electronegativities. Only returned if return_es is True.
+    np.ndarray : (n_atoms, ) array of hardnesses. Only returned if return_es is True.
 
     """
     if isinstance(molecule, Sequence):
@@ -68,12 +73,22 @@ def charge(
         model = model.cuda()
 
     graph = model(graph)
-    return graph.ndata["q"].cpu().detach().flatten().numpy()
+
+    q = graph.ndata["q"].cpu().detach().flatten().numpy()
+
+    if not return_es:
+        return q
+    
+    e = graph.ndata["e"].cpu().detach().flatten().numpy()
+    s = graph.ndata["s"].cpu().detach().flatten().numpy()
+
+    return q, e, s
 
 
 def charge_multiple(
         molecules,
         model_url: str = None,
+        return_es: bool = False
     ) -> np.ndarray:
     """Assign machine-learned AM1-BCC partial charges to a molecule.
 
@@ -85,10 +100,14 @@ def charge_multiple(
     model_url : str, optional, default=None
         URL or filepath to retrieve the model from.
         If None, the default MODEL_URL (defined at file level) is used
+    return_es : bool, optional, default=False
+        If True, return the per-atom electronegativity and hardness as well.
 
     Returns
     -------
     np.ndarray : (n_atoms, ) array of partial charges.
+    np.ndarray : (n_atoms, ) array of electronegativities. Only returned if return_es is True.
+    np.ndarray : (n_atoms, ) array of hardnesses. Only returned if return_es is True.
 
     """
     if model_url is None:
@@ -110,5 +129,13 @@ def charge_multiple(
     graph = graph.to("cpu")
     graphs = dgl.unbatch(graph)
 
-    return [graph.ndata["q"].detach().flatten().numpy() for graph in graphs]
+    q = [graph.ndata["q"].detach().flatten().numpy() for graph in graphs]
+
+    if not return_es:
+        return q
+    
+    e = [graph.ndata["e"].detach().flatten().numpy() for graph in graphs]
+    s = [graph.ndata["s"].detach().flatten().numpy() for graph in graphs]
+
+    return q, e, s
 
