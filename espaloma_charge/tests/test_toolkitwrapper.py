@@ -5,7 +5,7 @@ from openff.toolkit import ToolkitRegistry, ForceField, RDKitToolkitWrapper
 from openff.units import unit
 import pytest
 from openff.toolkit.utils.exceptions import ChargeMethodUnavailableError
-from openff.toolkit.tests.create_molecules import create_ethanol
+from openff.toolkit._tests.create_molecules import create_ethanol
 
 def test_ethanol_molecule_api_w_wrapper():
     ectkw = EspalomaChargeToolkitWrapper()
