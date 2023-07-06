@@ -1,6 +1,16 @@
 name: Python Package using Conda
 
-on: [push]
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+  schedule:
+    # At 01:02 UTC everyday.
+    - cron: "02 1 * * *"
+  workflow_dispatch:
 
 defaults:
   run:
@@ -12,27 +22,27 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest]
-        python-version: ["3.8", "3.10"]
+        os: [ubuntu-latest, macos-latest]
+        python-version: ["3.9", "3.11"]
 
     steps:
     - uses: actions/checkout@v3
     - name: Install environment
-      uses: mamba-org/provision-with-micromamba@main
+      uses: mamba-org/setup-micromamba@v1
       with:
         environment-file: environment.yml
-        extra-specs: |
+        create-args: >-
           python=${{ matrix.python-version }}
 
     - name: Install dependencies
       run: |
-        #conda env update --file environment.yml --name base
-        pip install . --no-deps
+        python -m pip install . --no-deps
 
     - name: Environment Information
       run: |
-        conda info
-        conda list
+        micromamba info
+        micromamba list
+
     - name: Test with pytest
       run: |
-        pytest espaloma_charge
+        pytest -v espaloma_charge
