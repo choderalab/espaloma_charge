@@ -17,7 +17,15 @@ class ChargeDataset(dgl.data.DGLDataset):
 def run(args):
     from espaloma_charge.utils import from_rdkit_mol
     molecules = Molecule.from_file(args.path, allow_undefined_stereo=True)
-    graphs = [from_rdkit_mol(molecule.to_rdkit()) for molecule in molecules]
+    # graphs = [from_rdkit_mol(molecule.to_rdkit()) for molecule in molecules]
+
+    graphs = []
+    for molecule in molecules:
+        try:
+            graphs.append(from_rdkit_mol(molecule.to_rdkit()))
+        except:
+            pass
+
     charges = [molecule.partial_charges for molecule in molecules]
     for graph, charge in zip(graphs, charges):
         graph.ndata["q_ref"] = torch.tensor(charge.magnitude).unsqueeze(-1)
@@ -126,7 +134,7 @@ if __name__ == "__main__":
     parser.add_argument("--depth", type=int, default=4)
     parser.add_argument("--width", type=int, default=32)
     parser.add_argument("--activation", type=str, default="relu")
-    parser.add_argument("--path", type=str, default="spice.mol2")
+    parser.add_argument("--path", type=str, default="spice.oeb")
     parser.add_argument("--learning_rate", type=float, default=1e-3)
     parser.add_argument("--weight_decay", type=float, default=1e-5)
     parser.add_argument("--n_epochs", type=int, default=5000)
