@@ -1,7 +1,25 @@
 import torch
 
+SUPPORTED_ELEMENTS = [
+    "H",
+    "C",
+    "N",
+    "O",
+    "F",
+    "P",
+    "S",
+    "Cl",
+    "Br",
+    "I",
+]
+
+
 def fp_rdkit(atom):
     from rdkit import Chem
+
+    element = atom.GetSymbol()
+    if element not in SUPPORTED_ELEMENTS:
+        raise ValueError(f"Element {element} is not supported.")
 
     HYBRIDIZATION_RDKIT = {
         Chem.rdchem.HybridizationType.SP: torch.tensor(
