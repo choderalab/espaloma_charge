@@ -2,3 +2,4 @@ dgl
 torch
 numpy
 rdkit
+torchdata
