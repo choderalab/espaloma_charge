@@ -7,7 +7,12 @@ Standalone charge assignment from Espaloma framework. https://doi.org/10.1039/D2
 
 ## Installation
 
+We are working to release this package onto conda-forge, in the meantime, the recommended installation procedure is:
+
 ```bash
+# First create a conda env with mamba, conda, or micromamba
+$ mamba create -n espaloma -c conda-forge dgl==1.1.2 pip python
+$ mamba activate espaloma
 $ pip install espaloma_charge
 ```
 
