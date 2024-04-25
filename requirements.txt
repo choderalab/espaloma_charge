@@ -1,4 +1,5 @@
-dgl
+dgl==1.1.2
 torch
 numpy
 rdkit
+torchdata
