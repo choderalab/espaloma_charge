@@ -3,7 +3,6 @@ channels:
   # Reduces image size by using empty cudatoolkit package
   - jaimergp/label/unsupported-cudatoolkit-shim
   - conda-forge
-  - dglteam
 dependencies:
   - python
   - openff-toolkit >=0.14.*,<0.15
