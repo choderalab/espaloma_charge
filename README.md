@@ -15,6 +15,12 @@ We recomend installing `espaloma_charge` via conda-forge:
 $ mamba create -n espaloma -c conda-forge espaloma_charge
 ```
 
+If you plan on using [`openff-toolkit`](https://github.com/openforcefield/openff-toolkit), then install that as well when creating your `espaloma_charge` environment for optimal dependency solving:
+
+```bash
+$ mamba create -n espaloma -c conda-forge espaloma_charge openff-toolkit
+```
+
 ### pypi
 
 We also have `espaloma_charge` on pypi, but the `dgl` dependency must be install first.
