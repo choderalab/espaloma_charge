@@ -5,7 +5,7 @@ channels:
   - conda-forge
 dependencies:
   - python
-  - openff-toolkit >=0.14.*,<0.17
+  - openff-toolkit >=0.14.*
   - pytest
   - pytorch
   - dgl ~=1.1.2
