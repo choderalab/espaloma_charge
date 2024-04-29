@@ -8,5 +8,5 @@ dependencies:
   - openff-toolkit >=0.14.*,<0.17
   - pytest
   - pytorch
-  - dgl ~==1.1.2
+  - dgl ~=1.1.2
   - torchdata
