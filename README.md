@@ -23,7 +23,7 @@ $ mamba create -n espaloma -c conda-forge espaloma_charge openff-toolkit
 
 ### pypi
 
-We also have `espaloma_charge` on pypi, but the `dgl` dependency must be install first.
+We also have `espaloma_charge` on pypi, but the `dgl` dependency must be installed first.
 
 ```bash
 # First create a conda env with mamba, conda, or micromamba
