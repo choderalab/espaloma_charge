@@ -7,7 +7,28 @@ Standalone charge assignment from Espaloma framework. https://doi.org/10.1039/D2
 
 ## Installation
 
+### conda-forge
+
+We recomend installing `espaloma_charge` via conda-forge:
+
 ```bash
+$ mamba create -n espaloma -c conda-forge espaloma_charge
+```
+
+If you plan on using [`openff-toolkit`](https://github.com/openforcefield/openff-toolkit), then install that as well when creating your `espaloma_charge` environment for optimal dependency solving:
+
+```bash
+$ mamba create -n espaloma -c conda-forge espaloma_charge openff-toolkit
+```
+
+### pypi
+
+We also have `espaloma_charge` on pypi, but the `dgl` dependency must be installed first.
+
+```bash
+# First create a conda env with mamba, conda, or micromamba
+$ mamba create -n espaloma -c conda-forge dgl==1.1.2 pip python
+$ mamba activate espaloma
 $ pip install espaloma_charge
 ```
 
