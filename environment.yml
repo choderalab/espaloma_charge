@@ -9,4 +9,4 @@ dependencies:
   - pytest
   - pytorch
   - dgl ~=2.
-  - torchdata
+  - torchdata ~=0.9.0
