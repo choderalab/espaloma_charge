@@ -65,6 +65,14 @@ $ espaloma_charge -i in.mol2 -o in.crg
 $ antechamber -fi mol2 -fo mol2 -i in.mol2 -o out.mol2 -c rc -cf in.crg 
 ```
 
+## Training data
+
+A minimal dataset for training the model can be found in https://doi.org/10.5281/zenodo.17308526
+
+## Training instructions
+
+Coming soon.
+
 ## Reference
 If you are using this little tool in your pipeline, please consider citing:
 

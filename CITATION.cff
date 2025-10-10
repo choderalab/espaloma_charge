@@ -1,0 +1,45 @@
+# This CITATION.cff file was generated with cffinit.
+# Visit https://bit.ly/cffinit to generate yours today!
+
+cff-version: 1.2.0
+title: EspalomaCharge
+message: >-
+  If you use this software, please cite it using the
+  metadata from this file.
+type: software
+authors:
+  - given-names: Yuanqing
+    family-names: Wang
+    orcid: 'https://orcid.org/0000-0003-4403-2015'
+  - given-names: Iván
+    family-names: Pulido
+    email: ivan.pulido@choderalab.org
+    affiliation: Memorial Sloan Kettering Cancer Center
+    orcid: 'https://orcid.org/0000-0002-7178-8136'
+  - given-names: Kenichiro
+    family-names: Takaba
+    orcid: 'https://orcid.org/0000-0002-2481-8830'
+  - given-names: Benjamin
+    family-names: Kaminow
+    orcid: 'https://orcid.org/0000-0002-2266-3353'
+  - given-names: Jenke
+    family-names: Scheen
+  - given-names: Lily
+    family-names: Wang
+    orcid: 'https://orcid.org/0000-0002-6095-6704'
+  - given-names: John
+    family-names: Chodera
+    email: john.chodera@choderalab.org
+    orcid: 'https://orcid.org/0000-0003-0542-119X'
+identifiers:
+  - type: doi
+    value: 10.1021/acs.jpca.4c01287
+  - type: doi
+    value: 10.5281/zenodo.17308525
+repository-code: 'https://github.com/choderalab/espaloma-charge'
+abstract: Stand-alone charge generation and assignment framework
+keywords:
+  - Molecular modeling
+  - Molecules
+  - Free Energy
+license: MIT
