@@ -46,18 +46,14 @@ def fp_rdkit(atom):
             [0, 0, 0, 0, 0],
             dtype=torch.get_default_dtype(),
         ),
-        Chem.rdchem.HybridizationType.UNSPECIFIED: torch.tensor(
-            [0, 0, 0, 0, 0],
-            dtype=torch.get_default_dtype(),
-        ),
     }
     return torch.cat(
         [
             torch.tensor(
                 [
                     atom.GetTotalDegree(),
-                    atom.GetTotalValence(),
-                    atom.GetExplicitValence(),
+                    # atom.GetTotalValence(),
+                    # atom.GetExplicitValence(),
                     # atom.GetFormalCharge(),
                     atom.GetIsAromatic() * 1.0,
                     atom.GetMass(),
@@ -76,9 +72,10 @@ def fp_rdkit(atom):
     )
 
 
-def from_rdkit_mol(mol, use_fp=True):
+def from_rdkit_mol(mol):
     import dgl
     from rdkit import Chem
+    from dgllife.utils import mol_to_bigraph
 
     # initialize graph
     g = dgl.DGLGraph()
@@ -89,9 +86,11 @@ def from_rdkit_mol(mol, use_fp=True):
     g.ndata["type"] = torch.Tensor(
         [[atom.GetAtomicNum()] for atom in mol.GetAtoms()]
     )
+
     g.ndata["q_ref"] = torch.Tensor(
         [[atom.GetFormalCharge()] for atom in mol.GetAtoms()]
     )
+
     h_v = torch.zeros(g.ndata["type"].shape[0], 100, dtype=torch.float32)
 
     h_v[
@@ -116,6 +115,6 @@ def from_rdkit_mol(mol, use_fp=True):
     g.add_edges(bonds_begin_idxs, bonds_end_idxs)
     g.add_edges(bonds_end_idxs, bonds_begin_idxs)
 
-    # g.edata["type"] = torch.Tensor(bonds_types)[:, None].repeat(2, 1)
+    g.edata["type"] = torch.Tensor(bonds_types)[:, None].repeat(2, 1)
 
     return g
