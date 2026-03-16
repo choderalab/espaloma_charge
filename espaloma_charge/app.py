@@ -67,7 +67,13 @@ def charge(
         graph = graph.to("cuda:0")
         model = model.cuda()
 
-    graph = model(graph)
+    for layer in model:
+        # Pass total_charge to ChargeEquilibrium layer, which will distribute it across atoms
+        if layer.__class__.__name__ == "ChargeEquilibrium":
+            graph = layer(graph, total_charge=total_charge)
+        else:
+            graph = layer(graph)
+    
     return graph.ndata["q"].cpu().detach().flatten().numpy()
 
 
